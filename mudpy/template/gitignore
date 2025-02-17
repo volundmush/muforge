@@ -1,2 +1,1 @@
-config.user.toml
-config.secrets.toml
+config.secrets*.toml

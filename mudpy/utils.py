@@ -51,9 +51,12 @@ async def run_program(program: str, settings: dict):
 
 def get_config(mode: str) -> dict:
     from dynaconf import Dynaconf
-    files = ["config.default.toml", "config.devel.toml"]
 
-    for f in ("user", "secrets"):
+    root_path = Path(mudpy.__file__).parent
+
+    files = [root_path / "config.default.toml"]
+
+    for f in ("user", f"user-{mode}", "secrets", f"secrets-{mode}"):
         if Path(f"config.{f}.toml").exists():
             files.append(f"config.{f}.toml")
 

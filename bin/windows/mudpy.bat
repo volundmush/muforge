@@ -1,1 +1,1 @@
-@"C:\Users\basti\IdeaProjects\venv\Scripts\python.exe" "C:\Users\basti\IdeaProjects\venv\Scripts\mudpy.py" %*
+@"C:\Users\basti\PycharmProjects\mudpy\.venv\Scripts\python.exe" "C:\Users\basti\PycharmProjects\mudpy\.venv\Scripts\mudpy.py" %*
