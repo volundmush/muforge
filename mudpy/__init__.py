@@ -7,6 +7,7 @@ from mudpy.utils import class_from_module
 
 SETTINGS = dict()
 SERVICES = dict()
+CLASSES = dict()
 
 APP = None
 

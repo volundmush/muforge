@@ -14,7 +14,8 @@ from rich.console import Group
 
 from mudpy.utils import generate_name
 from .game_session import GameSession, ClientCommand
-from mudpy import Service, SETTINGS
+import mudpy
+from mudpy import Service
 
 
 class TelnetCode(IntEnum):
@@ -861,10 +862,9 @@ class TelnetService(Service):
     def __init__(self, core):
         super().__init__(core)
         self.connections = set()
-        self.protocol_class = TelnetProtocol
 
-        self.external = SETTINGS["SHARED"]["external"]
-        self.port = SETTINGS["PORTAL"][self.op_key]
+        self.external = mudpy.SETTINGS["SHARED"]["external"]
+        self.port = mudpy.SETTINGS["PORTAL"][self.op_key]
         self.tls_context = None
         self.server = None
 
@@ -887,7 +887,7 @@ class TelnetService(Service):
             self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
         address, port = writer.get_extra_info("peername")
-        protocol = self.protocol_class(reader, writer, self)
+        protocol = mudpy.CLASSES["telnet"](reader, writer, self)
         protocol.capabilities.session_name = generate_name(
             self.op_key, self.core.game_sessions.keys()
         )

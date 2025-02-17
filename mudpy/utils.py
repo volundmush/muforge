@@ -39,10 +39,13 @@ async def run_program(program: str, settings: dict):
     if pidfile.exists():
         raise FileExistsError(f"{pidfile} already exists! Is the {program} already running?")
 
+    for k, v in settings[program.upper()]["classes"].items():
+        mudpy.CLASSES[k] = class_from_module(v)
+
     try:
         with open(pidfile, "w") as f:
             f.write(str(os.getpid()))
-            app_class = class_from_module(settings[program.upper()]["application"])
+            app_class = mudpy.CLASSES["application"]
             app = app_class(settings)
             await app.setup()
             await app.run()

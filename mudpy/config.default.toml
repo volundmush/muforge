@@ -6,26 +6,37 @@ key = "key.pem"
 
 [shared]
 # The external IP address to bind to.
-# This will be used for all of the portal's ports, and also the
-# game's webserver.
+# This will be used for binding all of the portal's listening
+# ports, and also the game's webserver.
 external = "0.0.0.0"
 # the class that'll be used to handle the launcher.
 launcher = "mudpy.utils.Launcher"
 
+
 [portal]
-# The class that'll be used to handle the portal.
-application = "mudpy.portal.application.Application"
 # The port that normal telnet will listen on. Set to 0 to disable.
 telnet = 7000
 # The port that secure telnet (TLS) will listen on. Set to 0 to disable.
 telnets = 0
 # The port that SSH will listen on. Set to 0 to disable.
 ssh = 0
+# The Link will attempt to connect to this address after negotiations to connect to the game
+# via SocketIO. It will also be provided to all webclients. So, it should be your external domain
+# name/url or IP address.
+weburl = "http://localhost:8000"
+
+[portal.classes]
+# The class that'll be used to handle the portal.
+application = "mudpy.portal.application.Application"
+telnet = "mudpy.portal.telnet.TelnetProtocol"
 
 [portal.services]
 telnet = "mudpy.portal.telnet.TelnetService"
 telnets = "mudpy.portal.telnet.TLSTelnetService"
 
 [game]
+
+
+[game.classes]
 # The class that'll be used to handle the game.
 application = "mudpy.game.application.Application"

@@ -1,8 +1,8 @@
 import asyncio
-import websockets
 import uuid
 
 from dataclasses import dataclass, field
+from rich.console import Console
 from rich.color import ColorType
 from rich.abc import RichRenderable
 from typing import Optional, Union
@@ -83,6 +83,7 @@ class GameSession:
         self.userdata = None
         self.outgoing_queue = asyncio.Queue()
         self.core = None
+        self.console = Console(color_system="standard")
 
     async def run(self):
         """
