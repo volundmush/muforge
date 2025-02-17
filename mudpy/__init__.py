@@ -10,6 +10,7 @@ SERVICES = dict()
 
 APP = None
 
+
 class Service:
     load_priority: int = 0
     start_priority: int = 0
@@ -26,6 +27,7 @@ class Service:
     async def run(self):
         pass
 
+
 class Application:
     # name will be either "portal" or "game"
     name: str = None
@@ -38,10 +40,14 @@ class Application:
         self.cert = SETTINGS["TLS"].get("certificate", None)
         self.key = SETTINGS["TLS"].get("key", None)
         self.ssl_context = None
-        if self.cert and self.key and Path(self.cert).exists() and Path(self.key).exists():
+        if (
+            self.cert
+            and self.key
+            and Path(self.cert).exists()
+            and Path(self.key).exists()
+        ):
             self.ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
             self.ssl_context.load_cert_chain(self.cert, self.key)
-
 
     async def setup(self):
         await self.setup_services()
@@ -70,4 +76,8 @@ class Application:
         await asyncio.gather(self.start(), self.run_services())
 
     async def start(self):
+        """
+        I'm not yet sure what this should do in a running game that's not covered by services,
+        but here it is.
+        """
         pass

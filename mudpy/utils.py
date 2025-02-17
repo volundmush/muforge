@@ -10,6 +10,8 @@ import traceback
 import time
 import sys
 from pathlib import Path
+import mudpy
+import argparse
 
 from datetime import datetime, timezone
 from inspect import getmembers, getmodule, getmro, ismodule, trace
@@ -546,3 +548,100 @@ class LogTime:
         end_time = time.perf_counter()
         duration = end_time - self.start_time
         logger.log(self.level, f"{self.message} took {duration:.6f} seconds")
+
+
+class Launcher:
+    root_dir = Path(mudpy.__file__).parent
+    components = ["portal", "game"]
+
+    def __init__(self, settings: dict):
+        self.settings = settings
+        self.parser = self._get_parser()
+        self.command_subparsers = None
+        self.cmd_args = self.parser.parse_args()
+
+    def _get_parser(self):
+        parser = argparse.ArgumentParser(
+            prog="mudpy",
+            description="MUDPy Launcher - Manage MUD projects and services."
+        )
+        subparsers = parser.add_subparsers(dest="command", required=True)
+        self.command_subparsers = subparsers
+
+        # --- "start" command -----------------------------------------
+        start_parser = subparsers.add_parser("start",
+                                             help="Start a specified component/service (e.g. portal, server)."
+                                             )
+        start_parser.add_argument(
+            "component",
+            help="Name of the component to start (e.g. 'portal', 'server')."
+        )
+        # Possibly add optional arguments here, like config paths, ports, etc.
+
+        # --- "status" command ----------------------------------------
+        status_parser = subparsers.add_parser("status",
+                                              help="Check the status of a specified component."
+                                              )
+        status_parser.add_argument(
+            "component",
+            help="Name of the component to query status for."
+        )
+
+        # --- "stop" command ------------------------------------------
+        stop_parser = subparsers.add_parser("stop",
+                                            help="Stop a specified component/service."
+                                            )
+        stop_parser.add_argument(
+            "component",
+            help="Name of the component to stop."
+        )
+
+        return parser
+
+    async def run(self):
+        try:
+            if (func := getattr(self, f"do_{self.cmd_args.command}")):
+                await func()
+            else:
+                print("Invalid command.")
+                self.parser.print_help()
+        except Exception as e:
+            print(f"Error: {e}")
+
+    async def is_running(self, component: str) -> bool:
+        """
+        We need to check if the specified component is running.
+        We can do this by looking at <cwd>/<component>.pid and seeing what's going on.
+        """
+        pid_file = Path(f"{component}.pid")
+        if not pid_file.exists():
+            return False
+        with open(pid_file) as f:
+            pid = int(f.read())
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            # Stale pidfile so remove it.
+            print(f"Removing stale pidfile '{pid_file}'...")
+            os.remove(pid_file)
+            return False
+        return True
+
+    def check_component(self, component: str) -> str:
+        lowered = component.lower().strip()
+        if component.lower().strip() not in self.components:
+            raise ValueError(f"Error: Invalid component '{component}'. Valid choices: {', '.join(self.components)}")
+        return lowered
+
+    async def run_start(self):
+        component = self.check_component(self.cmd_args.component)
+
+    async def run_status(self):
+        component = self.check_component(self.cmd_args.component)
+        if await self.is_running(component):
+            print(f"{component.capitalize()} is running.")
+        else:
+            print(f"{component.capitalize()} is not running.")
+
+    async def run_stop(self):
+        component = self.check_component(self.cmd_args.component)

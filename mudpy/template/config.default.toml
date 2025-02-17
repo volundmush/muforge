@@ -9,6 +9,8 @@ key = "key.pem"
 # This will be used for all of the portal's ports, and also the
 # game's webserver.
 external = "0.0.0.0"
+# the class that'll be used to handle the launcher.
+launcher = "mudpy.utils.Launcher"
 
 [portal]
 # The class that'll be used to handle the portal.
