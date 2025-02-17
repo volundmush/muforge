@@ -1,0 +1,14 @@
+orjson
+rich
+dynaconf
+pydantic
+numpy
+loguru
+aiodns
+pytest
+pytest-asyncio
+pytest-mock
+python-socketio[asyncio]
+redis
+passlib
+argon2-cffi
