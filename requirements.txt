@@ -8,7 +8,4 @@ aiodns
 pytest
 pytest-asyncio
 pytest-mock
-python-socketio[asyncio,asyncio_client]
-redis
-passlib
-argon2-cffi
+

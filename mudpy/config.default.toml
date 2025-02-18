@@ -11,6 +11,8 @@ key = "key.pem"
 external = "0.0.0.0"
 # the class that'll be used to handle the launcher.
 launcher = "mudpy.utils.Launcher"
+# The name of the project.
+name = "MudPy"
 
 
 [portal]

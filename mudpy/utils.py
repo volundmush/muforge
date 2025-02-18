@@ -18,26 +18,42 @@ from inspect import getmembers, getmodule, getmro, ismodule, trace
 
 from loguru import logger
 
+
 def setup_logging(name: str):
 
-    logformat = {"format": "{time} - {level} - {message}", "backtrace": True, "diagnose": True}
+    logformat = {
+        "format": "{time} - {level} - {message}",
+        "backtrace": True,
+        "diagnose": True,
+    }
 
     config = {
         "handlers": [
             {"sink": sys.stdout, "colorize": True, **logformat},
-            {"sink": f"logs/{name}.log", "serialize": True, "compression": "zip", **logformat},
+            {
+                "sink": f"logs/{name}.log",
+                "serialize": True,
+                "compression": "zip",
+                **logformat,
+            },
         ],
     }
     logger.configure(**config)
 
+
 async def run_program(program: str, settings: dict):
+    mudpy.SETTINGS.update(settings)
     if not Path("logs").exists():
-        raise FileNotFoundError("logs folder not found in current directory! Are you sure you're in the right place?")
+        raise FileNotFoundError(
+            "logs folder not found in current directory! Are you sure you're in the right place?"
+        )
     setup_logging(program)
 
     pidfile = Path(f"{program}.pid")
     if pidfile.exists():
-        raise FileExistsError(f"{pidfile} already exists! Is the {program} already running?")
+        raise FileExistsError(
+            f"{pidfile} already exists! Is the {program} already running?"
+        )
 
     for k, v in settings[program.upper()]["classes"].items():
         mudpy.CLASSES[k] = class_from_module(v)
@@ -52,6 +68,7 @@ async def run_program(program: str, settings: dict):
     finally:
         pidfile.unlink(missing_ok=True)
 
+
 def get_config(mode: str) -> dict:
     from dynaconf import Dynaconf
 
@@ -63,11 +80,10 @@ def get_config(mode: str) -> dict:
         if Path(f"config.{f}.toml").exists():
             files.append(f"config.{f}.toml")
 
-    d = Dynaconf(
-        settings_files=files
-    )
+    d = Dynaconf(settings_files=files)
 
     return d.to_dict()
+
 
 def utcnow():
     return datetime.now(timezone.utc)
@@ -569,44 +585,40 @@ class Launcher:
     def _get_parser(self):
         parser = argparse.ArgumentParser(
             prog="mudpy",
-            description="MUDPy Launcher - Manage MUD projects and services."
+            description="MUDPy Launcher - Manage MUD projects and services.",
         )
         subparsers = parser.add_subparsers(dest="command", required=True)
         self.command_subparsers = subparsers
 
         # --- "start" command -----------------------------------------
-        start_parser = subparsers.add_parser("start",
-                                             help="Start a specified component/service (e.g. portal, server)."
-                                             )
+        start_parser = subparsers.add_parser(
+            "start", help="Start a specified component/service (e.g. portal, server)."
+        )
         start_parser.add_argument(
             "component",
-            help="Name of the component to start (e.g. 'portal', 'server')."
+            help="Name of the component to start (e.g. 'portal', 'server').",
         )
         # Possibly add optional arguments here, like config paths, ports, etc.
 
         # --- "status" command ----------------------------------------
-        status_parser = subparsers.add_parser("status",
-                                              help="Check the status of a specified component."
-                                              )
+        status_parser = subparsers.add_parser(
+            "status", help="Check the status of a specified component."
+        )
         status_parser.add_argument(
-            "component",
-            help="Name of the component to query status for."
+            "component", help="Name of the component to query status for."
         )
 
         # --- "stop" command ------------------------------------------
-        stop_parser = subparsers.add_parser("stop",
-                                            help="Stop a specified component/service."
-                                            )
-        stop_parser.add_argument(
-            "component",
-            help="Name of the component to stop."
+        stop_parser = subparsers.add_parser(
+            "stop", help="Stop a specified component/service."
         )
+        stop_parser.add_argument("component", help="Name of the component to stop.")
 
         return parser
 
     async def run(self):
         try:
-            if (func := getattr(self, f"do_{self.cmd_args.command}")):
+            if func := getattr(self, f"do_{self.cmd_args.command}"):
                 await func()
             else:
                 print("Invalid command.")
@@ -636,7 +648,9 @@ class Launcher:
     def check_component(self, component: str) -> str:
         lowered = component.lower().strip()
         if component.lower().strip() not in self.components:
-            raise ValueError(f"Error: Invalid component '{component}'. Valid choices: {', '.join(self.components)}")
+            raise ValueError(
+                f"Error: Invalid component '{component}'. Valid choices: {', '.join(self.components)}"
+            )
         return lowered
 
     async def run_start(self):
