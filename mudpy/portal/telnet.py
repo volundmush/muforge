@@ -186,7 +186,7 @@ def scan_until_IAC_SE(data: bytes) -> int:
 
 
 def parse_telnet(
-        data: bytes,
+    data: bytes,
 ) -> tuple[
     int,
     typing.Union[None, TelnetCommand, TelnetData, TelnetNegotiate, TelnetSubNegotiate],
@@ -206,10 +206,10 @@ def parse_telnet(
             # Escaped IAC
             return 2, TelnetData(data[:1])
         elif data[1] in (
-                TelnetCode.WILL,
-                TelnetCode.WONT,
-                TelnetCode.DO,
-                TelnetCode.DONT,
+            TelnetCode.WILL,
+            TelnetCode.WONT,
+            TelnetCode.DO,
+            TelnetCode.DONT,
         ):
             if len(data) < 3:
                 return 0, None
@@ -434,7 +434,17 @@ class MTTSOption(TelnetOption):
         max_color = ColorType.STANDARD
 
         match client_name.upper():
-            case "ATLANTIS" | "CMUD" | "KILDCLIENT" | "MUDLET" | "MUSHCLIENT" | "PUTTY" | "BEIP" | "POTATO" | "TINYFUGUE":
+            case (
+                "ATLANTIS"
+                | "CMUD"
+                | "KILDCLIENT"
+                | "MUDLET"
+                | "MUSHCLIENT"
+                | "PUTTY"
+                | "BEIP"
+                | "POTATO"
+                | "TINYFUGUE"
+            ):
                 max_color = max(max_color, ColorType.EIGHT_BIT)
             case "MUDLET":
                 if client_version is not None and client_version.startswith("1.1"):
@@ -455,9 +465,9 @@ class MTTSOption(TelnetOption):
 
         if max_color < ColorType.EIGHT_BIT:
             if (
-                    first.endswith("-256COLOR")
-                    or first.endswith("XTERM")  # Apple Terminal, old Tintin
-                    and not first.endswith("-COLOR")  # old Tintin, Putty
+                first.endswith("-256COLOR")
+                or first.endswith("XTERM")  # Apple Terminal, old Tintin
+                and not first.endswith("-COLOR")  # old Tintin, Putty
             ):
                 max_color = ColorType.EIGHT_BIT
 
@@ -499,7 +509,16 @@ class MTTSOption(TelnetOption):
 
         for c in supported:
             match c:
-                case "encryption" | "mslp" | "mnes" | "proxy" | "vt100" | "screenreader" | "osc_color_palette" | "mouse_tracking":
+                case (
+                    "encryption"
+                    | "mslp"
+                    | "mnes"
+                    | "proxy"
+                    | "vt100"
+                    | "screenreader"
+                    | "osc_color_palette"
+                    | "mouse_tracking"
+                ):
                     out[c] = True
                 case "truecolor":
                     max_color = max(ColorType.TRUECOLOR, max_color)
@@ -613,6 +632,7 @@ class LineModeOption(TelnetOption):
 class EOROption(TelnetOption):
     code = TelnetCode.TELOPT_EOR
 
+
 def ensure_crlf(input_str: str) -> str:
     """
     Ensure that every newline in the input string is preceded by a carriage return.
@@ -629,16 +649,16 @@ def ensure_crlf(input_str: str) -> str:
     iac = chr(255)
 
     for c in input_str:
-        if c == '\r':
+        if c == "\r":
             # Only add a CR if the previous character wasn't a CR.
             if not prev_char_is_cr:
-                result.append('\r')
+                result.append("\r")
             prev_char_is_cr = True
-        elif c == '\n':
+        elif c == "\n":
             # If the previous char wasn't a CR, add one before the newline.
             if not prev_char_is_cr:
-                result.append('\r')
-            result.append('\n')
+                result.append("\r")
+            result.append("\n")
             prev_char_is_cr = False
         elif c == iac:
             # Telnet IAC character: escape it by adding it twice.
@@ -649,7 +669,8 @@ def ensure_crlf(input_str: str) -> str:
             result.append(c)
             prev_char_is_cr = False
 
-    return ''.join(result)
+    return "".join(result)
+
 
 class TelnetProtocol(GameSession):
     supported_options: list[typing.Type[TelnetOption], ...] = [
@@ -668,7 +689,7 @@ class TelnetProtocol(GameSession):
         return f"<TelnetProtocol: {self.capabilities.session_name}>"
 
     def __init__(
-            self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, server
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, server
     ):
         super().__init__()
         self.capabilities.encryption = server.tls
@@ -859,8 +880,7 @@ class TelnetService(Service):
     tls = False
     op_key = "telnet"
 
-    def __init__(self, core):
-        super().__init__(core)
+    def __init__(self):
         self.connections = set()
 
         self.external = mudpy.SETTINGS["SHARED"]["external"]
@@ -884,28 +904,28 @@ class TelnetService(Service):
             await self.server.serve_forever()
 
     async def handle_client(
-            self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
         address, port = writer.get_extra_info("peername")
         protocol = mudpy.CLASSES["telnet"](reader, writer, self)
         protocol.capabilities.session_name = generate_name(
-            self.op_key, self.core.game_sessions.keys()
+            self.op_key, mudpy.APP.game_sessions.keys()
         )
         protocol.capabilities.host_address = address
         protocol.capabilities.host_port = port
-        if self.core.resolver:
-            reverse = await self.core.resolver.gethostbyaddr(address)
+        if mudpy.APP.resolver:
+            reverse = await mudpy.APP.resolver.gethostbyaddr(address)
             protocol.capabilities.host_names = reverse.aliases
-        await self.core.handle_new_protocol(protocol)
+        await mudpy.APP.handle_new_protocol(protocol)
 
 
 class TLSTelnetService(TelnetService):
     tls = True
     op_key = "telnets"
 
-    def __init__(self, core):
-        super().__init__(core)
-        self.tls_context = core.ssl_context
+    def __init__(self):
+        super().__init__()
+        self.tls_context = mudpy.APP.ssl_context
 
     def is_valid(self):
         return self.tls_context is not None

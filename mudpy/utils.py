@@ -9,6 +9,7 @@ import types
 import traceback
 import time
 import sys
+import ssl
 from pathlib import Path
 import mudpy
 import argparse
@@ -41,28 +42,41 @@ def setup_logging(name: str):
     logger.configure(**config)
 
 
-async def run_program(program: str, settings: dict):
+async def setup_program(program: str, settings: dict):
     mudpy.SETTINGS.update(settings)
+
     if not Path("logs").exists():
         raise FileNotFoundError(
             "logs folder not found in current directory! Are you sure you're in the right place?"
         )
     setup_logging(program)
 
+    cert = settings["TLS"].get("certificate", None)
+    key = settings["TLS"].get("key", None)
+    if cert and key and Path(cert).exists() and Path(key).exists():
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(cert, key)
+        mudpy.SSL_CONTEXT = context
+
+    for k, v in settings[program.upper()]["classes"].items():
+        mudpy.CLASSES[k] = class_from_module(v)
+
+
+async def run_program(program: str, settings: dict):
     pidfile = Path(f"{program}.pid")
     if pidfile.exists():
         raise FileExistsError(
             f"{pidfile} already exists! Is the {program} already running?"
         )
 
-    for k, v in settings[program.upper()]["classes"].items():
-        mudpy.CLASSES[k] = class_from_module(v)
+    await setup_program(program, settings)
 
     try:
         with open(pidfile, "w") as f:
             f.write(str(os.getpid()))
             app_class = mudpy.CLASSES["application"]
-            app = app_class(settings)
+            app = app_class()
+            mudpy.APP = app
             await app.setup()
             await app.run()
     finally:
