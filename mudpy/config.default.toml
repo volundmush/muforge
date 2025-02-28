@@ -1,3 +1,5 @@
+dynaconf_merge = true
+
 [tls]
 # The paths to TLS cert and key the whole application should use for things.
 # if these aren't set right, TLS won't engage.
@@ -31,6 +33,7 @@ weburl = "http://localhost:8000"
 # The class that'll be used to handle the portal.
 application = "mudpy.portal.application.Application"
 telnet = "mudpy.portal.telnet.TelnetProtocol"
+link = "mudpy.portal.link.Link"
 
 [portal.services]
 telnet = "mudpy.portal.telnet.TelnetService"

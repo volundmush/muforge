@@ -58,7 +58,7 @@ async def setup_program(program: str, settings: dict):
         context.load_cert_chain(cert, key)
         mudpy.SSL_CONTEXT = context
 
-    for k, v in settings[program.upper()]["classes"].items():
+    for k, v in settings[program.upper()].get("classes", dict()).items():
         mudpy.CLASSES[k] = class_from_module(v)
 
 
@@ -90,7 +90,14 @@ def get_config(mode: str) -> dict:
 
     files = [root_path / "config.default.toml"]
 
-    for f in ("user", f"user-{mode}", "secrets", f"secrets-{mode}"):
+    for f in (
+        "framework",
+        f"framework-{mode}",
+        "user",
+        f"user-{mode}",
+        "secrets",
+        f"secrets-{mode}",
+    ):
         if Path(f"config.{f}.toml").exists():
             files.append(f"config.{f}.toml")
 

@@ -36,7 +36,7 @@ class Application:
 
     async def setup_services(self):
         global SERVICES
-        for k, v in SETTINGS[self.name.upper()]["services"].items():
+        for k, v in SETTINGS[self.name.upper()].get("services", dict()).items():
             cls = class_from_module(v)
             srv = cls(self)
             SERVICES[k] = srv
