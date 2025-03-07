@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 import asyncio
+import mudpy
 from mudpy.utils import run_program, get_config
 
-async def main():
-    settings = get_config("portal")
-    await run_program("portal", settings)
 
 if __name__ == "__main__":
-    asyncio.run(main(), debug=True)
+    settings = get_config("portal")
+    asyncio.run(run_program("portal", settings), debug=True)

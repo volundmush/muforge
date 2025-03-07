@@ -2,7 +2,6 @@ import asyncio
 import typing
 import zlib
 import orjson
-import ssl
 from loguru import logger
 import traceback
 
@@ -10,7 +9,6 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 
 from rich.color import ColorType
-from rich.console import Group
 
 from mudpy.utils import generate_name
 from .base_connection import BaseConnection, ClientCommand
@@ -717,13 +715,19 @@ class TelnetConnection(BaseConnection):
             self.task_group.create_task(task())
 
     async def _tn_run_reader(self):
-        try:
-            while data := await self._tn_reader.read(1024):
-                # concatenate data to self._raw_read_buffer.
+        while True:
+            try:
+                data = await self._tn_reader.read(1024)
+                if not data:
+                    self.shutdown_cause = "reader_eof"
+                    self.shutdown_event.set()
+                    return
                 await self._tn_at_receive_raw_data(data)
-        except Exception as err:
-            logger.error(traceback.format_exc())
-            logger.error(err)
+            except asyncio.CancelledError:
+                return
+            except Exception as err:
+                logger.error(traceback.format_exc())
+                logger.error(err)
 
     async def _tn_at_receive_raw_data(self, data: bytes):
         """
@@ -820,7 +824,6 @@ class TelnetConnection(BaseConnection):
     async def _tn_run_writer(self):
         try:
             while data := await self._tn_out_queue.get():
-                # each data should be a TelnetMessage.
                 encoded = self._tn_encode_outgoing_data(data)
                 self._tn_writer.write(encoded)
                 match data:
@@ -831,6 +834,15 @@ class TelnetConnection(BaseConnection):
                         if op := self._tn_options.get(data.option, None):
                             await op.at_send_subnegotiate(data)
                 await self._tn_writer.drain()
+        except asyncio.CancelledError:
+            # Optionally, perform any cleanup before re-raising.
+            # For example, if you need to close the writer:
+            try:
+                self._tn_writer.close()
+                await self._tn_writer.wait_closed()
+            except Exception:
+                pass
+            raise
         except Exception as err:
             logger.error(traceback.format_exc())
             logger.error(err)
@@ -851,6 +863,8 @@ class TelnetConnection(BaseConnection):
         except Exception as err:
             logger.error(traceback.format_exc())
             logger.error(err)
+        except asyncio.CancelledError:
+            return
 
     async def send_text(self, text: str):
         converted = ensure_crlf(text)
@@ -878,6 +892,8 @@ class TelnetService(Service):
         self.port = mudpy.SETTINGS["PORTAL"]["networking"][self.op_key]
         self.tls_context = None
         self.server = None
+        self.shutdown_event = asyncio.Event()
+        self.sessions = set()
 
     async def setup(self):
         self.server = await asyncio.start_server(
@@ -887,12 +903,21 @@ class TelnetService(Service):
         logger.info(f"{self.op_key} server created on {self.external}:{self.port}")
 
     async def run(self):
-        # Log or print that the server has started
         logger.info(f"{self.op_key} server started on {self.external}:{self.port}")
+        try:
+            await self.shutdown_event.wait()
+        except asyncio.CancelledError:
+            logger.info(f"{self.op_key} server cancellation received.")
+            for session in self.sessions.copy():
+                session.shutdown_cause = "graceful_shutdown"
+                session.shutdown_event.set()
+        finally:
+            # Make sure to close the server if not already closed.
+            self.server.close()
+            await self.server.wait_closed()
 
-        # Run the server until the service is stopped
-        async with self.server:
-            await self.server.serve_forever()
+    def shutdown(self):
+        self.shutdown_event.set()
 
     async def handle_client(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -907,7 +932,9 @@ class TelnetService(Service):
         if mudpy.APP.resolver:
             reverse = await mudpy.APP.resolver.gethostbyaddr(address)
             protocol.capabilities.host_names = reverse.aliases
+        self.sessions.add(protocol)
         await mudpy.APP.handle_new_protocol(protocol)
+        self.sessions.remove(protocol)
 
 
 class TLSTelnetService(TelnetService):

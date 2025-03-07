@@ -27,6 +27,9 @@ class Service:
     async def run(self):
         pass
 
+    def shutdown(self):
+        pass
+
 
 class Application:
     # name will be either "portal" or "game"
@@ -34,6 +37,7 @@ class Application:
 
     def __init__(self):
         self.valid_services: list[Service] = []
+        self.shutdown_event = asyncio.Event()
 
     async def setup(self):
         await self.setup_services()
@@ -51,15 +55,27 @@ class Application:
         for srv in self.valid_services:
             await srv.setup()
 
-    async def run_services(self):
+    async def run(self):
         self.valid_services.sort(key=lambda x: x.start_priority)
-        logger.info(f"Starting {self.name} services...")
+        logger.info("Starting services...")
         async with asyncio.TaskGroup() as tg:
             for srv in self.valid_services:
                 tg.create_task(srv.run())
+            tg.create_task(self.start())
 
-    async def run(self):
-        await asyncio.gather(self.start(), self.run_services())
+            await self.shutdown_event.wait()
+            raise asyncio.CancelledError()
+
+        logger.info("All services have stopped.")
+
+    def shutdown(self):
+        self.shutdown_event.set()
+
+    def exception_handler(self, loop, context):
+        exception = context.get("exception")
+        if isinstance(exception, KeyboardInterrupt):
+            print("Going down...")
+            self.shutdown()
 
     async def start(self):
         """

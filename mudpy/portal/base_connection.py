@@ -105,6 +105,8 @@ class BaseConnection:
         )
         self.jwt = None
         self.refresh_token = None
+        self.shutdown_event = asyncio.Event()
+        self.shutdown_cause = None
 
     def flush(self):
         """
@@ -135,9 +137,18 @@ class BaseConnection:
             self.task_group = tg
             await self.setup()
 
+            await self.shutdown_event.wait()
+            logger.info(
+                f"Connection {self.capabilities.session_name} shutting down: {self.shutdown_cause}"
+            )
+            raise asyncio.CancelledError()
+
     async def change_capabilities(self, changed: dict[str, "Any"]):
         for attr, value in changed.items():
+            if getattr(self.capabilities, attr) == value:
+                continue
             setattr(self.capabilities, attr, value)
+            await self.send_line(f"Capability change: {attr} -> {value}")
             await self.at_capability_change(attr, value)
 
     async def at_capability_change(self, capability: str, value):
@@ -207,6 +218,6 @@ class BaseConnection:
                 data = await self.user_input_queue.get()
                 await self.handle_user_input(data)
             except asyncio.CancelledError:
-                break
+                return
             except Exception as e:
                 logger.error(e)

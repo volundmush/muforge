@@ -13,6 +13,8 @@ import ssl
 from pathlib import Path
 import mudpy
 import argparse
+import signal
+import asyncio
 
 from datetime import datetime, timezone
 from inspect import getmembers, getmodule, getmro, ismodule, trace
@@ -78,7 +80,11 @@ async def run_program(program: str, settings: dict):
             app = app_class()
             mudpy.APP = app
             await app.setup()
-            await app.run()
+            try:
+                await app.run()
+            except asyncio.CancelledError:
+                logger.info("App run finished")
+                app.shutdown()
     finally:
         pidfile.unlink(missing_ok=True)
 
