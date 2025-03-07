@@ -178,7 +178,7 @@ def mod_import(module):
         return None
 
 
-def callables_from_module(module):
+def callables_from_module(module) -> dict[str, callable]:
     """
     Return all global-level callables defined in a module.
 

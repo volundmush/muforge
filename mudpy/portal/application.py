@@ -6,16 +6,17 @@ import traceback
 from mudpy import Application as _Application
 from loguru import logger
 
+
 class Application(_Application):
     name = "portal"
 
-    def __init__(self, settings):
-        super().__init__(settings)
+    def __init__(self):
+        super().__init__()
         self.game_sessions = dict()
         self.resolver = None
 
         loop = asyncio.get_event_loop()
-        if sys.platform != 'win32':
+        if sys.platform != "win32":
             self.resolver = aiodns.DNSResolver(loop=loop)
 
     async def handle_new_protocol(self, protocol):

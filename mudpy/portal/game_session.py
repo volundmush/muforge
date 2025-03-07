@@ -1,12 +1,9 @@
 import asyncio
-import uuid
+import mudpy
 
 from dataclasses import dataclass, field
-from rich.console import Console
-from rich.color import ColorType
-from rich.abc import RichRenderable
-from typing import Optional, Union
 
+from rich.color import ColorType
 
 
 @dataclass
@@ -48,25 +45,31 @@ class Capabilities:
         return self.client_name
 
 
-@dataclass
+@dataclass(slots=True)
 class ClientHello:
     userdata: dict[str, "Any"] = field(default_factory=dict)
     capabilities: Capabilities = field(default_factory=Capabilities)
 
 
-@dataclass
+@dataclass(slots=True)
 class ClientCommand:
     text: str = ""
 
 
-@dataclass
+@dataclass(slots=True)
 class ClientUpdate:
     capabilities: dict[str, "Any"] = field(default_factory=dict)
 
 
-@dataclass
+@dataclass(slots=True)
 class ClientDisconnect:
     pass
+
+
+@dataclass(slots=True)
+class ClientGMCP:
+    package: str
+    data: dict
 
 
 class GameSession:
@@ -74,6 +77,7 @@ class GameSession:
     Base implementation of the glue between the Portal and the Game. This represents a single player connection, mapping
     a protocol like telnet to a SurrealDB client connection.
     """
+
     def __init__(self):
         self.capabilities = Capabilities()
         self.task_group = asyncio.TaskGroup()
@@ -81,9 +85,9 @@ class GameSession:
         self.running = True
         # This contains arbitrary data sent by the server which will be sent on a reconnect.
         self.userdata = None
-        self.outgoing_queue = asyncio.Queue()
+        self.user_input_queue = asyncio.Queue()
         self.core = None
-        self.console = Console(color_system="standard")
+        self.link = None
 
     async def run(self):
         """
@@ -92,8 +96,9 @@ class GameSession:
         pass
 
     async def start(self):
-        # This is called after all protocol setup is done and we're ready to link to SurrealDB.
-        pass
+        link_class = mudpy.CLASSES["link"]
+        self.link = link_class(self)
+        await self.link.run()
 
     async def change_capabilities(self, changed: dict[str, "Any"]):
         self.capabilities.__dict__.update(changed)

@@ -1,4 +1,5 @@
 import asyncio
+import asyncpg
 from loguru import logger
 from mudpy.utils import class_from_module
 
@@ -6,6 +7,9 @@ SETTINGS = dict()
 SERVICES = dict()
 CLASSES = dict()
 SSL_CONTEXT = None
+LOCKPARSER = None
+LOCKFUNCS = dict()
+PGPOOL: asyncpg.Pool = None
 
 APP = None
 
@@ -38,7 +42,7 @@ class Application:
         global SERVICES
         for k, v in SETTINGS[self.name.upper()].get("services", dict()).items():
             cls = class_from_module(v)
-            srv = cls(self)
+            srv = cls()
             SERVICES[k] = srv
             if srv.is_valid():
                 self.valid_services.append(srv)

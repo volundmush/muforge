@@ -781,7 +781,7 @@ class TelnetProtocol(GameSession):
 
             # Process the line
             if line != "IDLE":
-                await self.outgoing_queue.put(ClientCommand(text=line))
+                await self.user_input_queue.put(ClientCommand(text=line))
 
             # Remove the processed line from _app_data
             self._app_data = self._app_data[newline_pos + 1 :]
@@ -863,7 +863,7 @@ class TelnetProtocol(GameSession):
 
     async def handle_send_text(self, text: str):
         converted = ensure_crlf(text)
-        await self._telnet_out_queue.put(converted)
+        await self._telnet_out_queue.put(converted.encode())
 
     async def send_gmcp(self, command: str, data=None):
         if self.capabilities.gmcp:
@@ -884,7 +884,7 @@ class TelnetService(Service):
         self.connections = set()
 
         self.external = mudpy.SETTINGS["SHARED"]["external"]
-        self.port = mudpy.SETTINGS["PORTAL"][self.op_key]
+        self.port = mudpy.SETTINGS["PORTAL"]["networking"][self.op_key]
         self.tls_context = None
         self.server = None
 
@@ -925,7 +925,7 @@ class TLSTelnetService(TelnetService):
 
     def __init__(self):
         super().__init__()
-        self.tls_context = mudpy.APP.ssl_context
+        self.tls_context = mudpy.SSL_CONTEXT
 
     def is_valid(self):
         return self.tls_context is not None
