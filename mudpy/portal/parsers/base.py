@@ -1,7 +1,7 @@
 class BaseParser:
 
     def __init__(self):
-        self.link: "Link" = None
+        self.connection: "BaseConnection" = None
 
     async def on_start(self):
         pass

@@ -13,7 +13,7 @@ from rich.color import ColorType
 from rich.console import Group
 
 from mudpy.utils import generate_name
-from .game_session import GameSession, ClientCommand
+from .base_connection import BaseConnection, ClientCommand
 import mudpy
 from mudpy import Service
 
@@ -254,11 +254,11 @@ class TelnetOption:
 
     async def send_subnegotiate(self, data: bytes):
         msg = TelnetSubNegotiate(self.code, data)
-        await self.protocol._telnet_out_queue.put(msg)
+        await self.protocol._tn_out_queue.put(msg)
 
     async def send_negotiate(self, command: TelnetCode):
         msg = TelnetNegotiate(command, self.code)
-        await self.protocol._telnet_out_queue.put(msg)
+        await self.protocol._tn_out_queue.put(msg)
 
     async def start(self):
         if self.start_local:
@@ -566,7 +566,7 @@ class MCCP2Option(TelnetOption):
     async def at_send_subnegotiate(self, msg):
         if not self.protocol.capabilities.mccp2_enabled:
             await self.protocol.change_capabilities({"mccp2_enabled": True})
-            self.protocol.compress_out = zlib.compressobj(9)
+            self.protocol._tn_compress_out = zlib.compressobj(9)
 
     async def at_local_enable(self):
         await self.protocol.change_capabilities({"mccp2": True})
@@ -582,11 +582,11 @@ class MCCP3Option(TelnetOption):
     async def at_receive_subnegotiate(self, msg):
         if not self.protocol.capabilities.mccp3_enabled:
             await self.protocol.change_capabilities({"mccp3_enabled": True})
-            self.protocol.decompress_in = zlib.decompressobj()
+            self.protocol._tn_decompress_in = zlib.decompressobj()
             try:
-                self.protocol._telnet_read_buffer = bytearray(
-                    self.protocol.decompress_in.decompress(
-                        self.protocol._telnet_read_buffer
+                self.protocol._tn_read_buffer = bytearray(
+                    self.protocol._tn_decompress_in.decompress(
+                        self.protocol._tn_read_buffer
                     )
                 )
             except zlib.error as e:
@@ -596,11 +596,11 @@ class MCCP3Option(TelnetOption):
         """
         If the compression ends, we must immediately disable MCCP3.
         """
-        self.protocol.decompress_in = None
+        self.protocol._tn_decompress_in = None
         await self.protocol.change_capabilities({"mccp3_enabled": False})
 
     async def at_decompress_error(self):
-        self.protocol.decompress_in = None
+        self.protocol._tn_decompress_in = None
         await self.protocol.change_capabilities({"mccp3_enabled": False})
         await self.send_negotiate(TelnetCode.WONT)
 
@@ -672,7 +672,7 @@ def ensure_crlf(input_str: str) -> str:
     return "".join(result)
 
 
-class TelnetProtocol(GameSession):
+class TelnetConnection(BaseConnection):
     supported_options: list[typing.Type[TelnetOption], ...] = [
         #        SGAOption,
         NAWSOption,
@@ -686,95 +686,97 @@ class TelnetProtocol(GameSession):
     ]
 
     def __repr__(self):
-        return f"<TelnetProtocol: {self.capabilities.session_name}>"
+        return f"<TelnetConnection: {self.capabilities.session_name}>"
 
     def __init__(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, server
     ):
         super().__init__()
         self.capabilities.encryption = server.tls
-        self.reader = reader
-        self.writer = writer
-        self.server = server
-        self._telnet_read_buffer = bytearray()
-        self._telnet_in_queue = asyncio.Queue()
-        self._telnet_out_queue = asyncio.Queue()
-        self._app_data = bytearray()
+        self._tn_reader = reader
+        self._tn_writer = writer
+        self._tn_server = server
+        self._tn_read_buffer = bytearray()
+        self._tn_in_queue = asyncio.Queue()
+        self._tn_out_queue = asyncio.Queue()
+        self._tn_app_data = bytearray()
 
-        self.options: dict[int, TelnetOption] = {}
-        self.compress_out = None
-        self.decompress_in = None
+        self._tn_options: dict[int, TelnetOption] = {}
+        self._tn_compress_out = None
+        self._tn_decompress_in = None
 
         for op in self.supported_options:
-            self.options[op.code] = op(self)
+            self._tn_options[op.code] = op(self)
 
-    async def run(self):
-        async with self.task_group as tg:
-            self.tasks["reader"] = tg.create_task(self.run_reader())
-            self.tasks["writer"] = tg.create_task(self.run_writer())
-            self.tasks["negotiation"] = tg.create_task(self.run_negotiation())
+    async def setup(self):
+        for task in (
+            self._tn_run_reader,
+            self._tn_run_writer,
+            self._tn_run_negotiation,
+        ):
+            self.task_group.create_task(task())
 
-    async def run_reader(self):
+    async def _tn_run_reader(self):
         try:
-            while data := await self.reader.read(1024):
+            while data := await self._tn_reader.read(1024):
                 # concatenate data to self._raw_read_buffer.
-                await self.at_receive_raw_data(data)
+                await self._tn_at_receive_raw_data(data)
         except Exception as err:
             logger.error(traceback.format_exc())
             logger.error(err)
 
-    async def at_receive_raw_data(self, data: bytes):
+    async def _tn_at_receive_raw_data(self, data: bytes):
         """
         Responds to data received by run_reader.
         """
         if self.capabilities.mccp3_enabled:
             try:
-                data = self.decompress_in.decompress(data)
-                if self.decompress_in.unused_data != b"":
-                    op: MCCP3Option = self.options[TelnetCode.MCCP3]
+                data = self._tn_decompress_in.decompress(data)
+                if self._tn_decompress_in.unused_data != b"":
+                    op: MCCP3Option = self._tn_options[TelnetCode.MCCP3]
                     await op.at_decompress_end()
-                self._telnet_read_buffer.extend(data)
+                self._tn_read_buffer.extend(data)
             except zlib.error as e:
-                op: MCCP3Option = self.options[TelnetCode.MCCP3]
+                op: MCCP3Option = self._tn_options[TelnetCode.MCCP3]
                 await op.at_decompress_end()
         else:
-            self._telnet_read_buffer.extend(data)
+            self._tn_read_buffer.extend(data)
 
         while True:
-            length, message = parse_telnet(self._telnet_read_buffer)
+            length, message = parse_telnet(self._tn_read_buffer)
             if message is not None:
-                del self._telnet_read_buffer[:length]
-                await self.at_telnet_message(message)
+                del self._tn_read_buffer[:length]
+                await self._tn_at_telnet_message(message)
             else:
                 break
 
-    async def at_telnet_message(self, message):
+    async def _tn_at_telnet_message(self, message):
         """
         Responds to data converted from raw data after possible decompression.
         """
         match message:
             case TelnetData():
-                await self.handle_data(message)
+                await self._tn_handle_data(message)
             case TelnetCommand():
-                await self.handle_command(message)
+                await self._tn_handle_command(message)
             case TelnetNegotiate():
-                await self.handle_negotiate(message)
+                await self._tn_handle_negotiate(message)
             case TelnetSubNegotiate():
-                await self.handle_subnegotiate(message)
+                await self._tn_handle_subnegotiate(message)
 
-    async def handle_data(self, message: TelnetData):
-        self._app_data.extend(message.data)
+    async def _tn_handle_data(self, message: TelnetData):
+        self._tn_app_data.extend(message.data)
 
         # scan self._app_data for lines ending in \r\n...
         while True:
             # Find the position of the next newline character
-            newline_pos = self._app_data.find(b"\n")
+            newline_pos = self._tn_app_data.find(b"\n")
             if newline_pos == -1:
                 break  # No more newlines
 
             # Extract the line, trimming \r\n at the end
             line = (
-                self._app_data[:newline_pos]
+                self._tn_app_data[:newline_pos]
                 .rstrip(b"\r\n")
                 .decode("utf-8", errors="ignore")
             )
@@ -784,10 +786,10 @@ class TelnetProtocol(GameSession):
                 await self.user_input_queue.put(ClientCommand(text=line))
 
             # Remove the processed line from _app_data
-            self._app_data = self._app_data[newline_pos + 1 :]
+            self._tn_app_data = self._tn_app_data[newline_pos + 1 :]
 
-    async def handle_negotiate(self, message: TelnetNegotiate):
-        if op := self.options.get(message.option, None):
+    async def _tn_handle_negotiate(self, message: TelnetNegotiate):
+        if op := self._tn_options.get(message.option, None):
             await op.at_receive_negotiate(message)
             return
 
@@ -795,84 +797,73 @@ class TelnetProtocol(GameSession):
         match message.command:
             case TelnetCode.WILL:
                 msg = TelnetNegotiate(TelnetCode.DONT, message.option)
-                await self._telnet_out_queue.put(msg)
+                await self._tn_out_queue.put(msg)
             case TelnetCode.DO:
                 msg = TelnetNegotiate(TelnetCode.WONT, message.option)
-                await self._telnet_out_queue.put(msg)
+                await self._tn_out_queue.put(msg)
 
-    async def handle_subnegotiate(self, message: TelnetSubNegotiate):
-        if op := self.options.get(message.option, None):
+    async def _tn_handle_subnegotiate(self, message: TelnetSubNegotiate):
+        if op := self._tn_options.get(message.option, None):
             await op.at_receive_subnegotiate(message)
 
-    async def handle_command(self, message: TelnetCommand):
+    async def _tn_handle_command(self, message: TelnetCommand):
         pass
 
-    def encode_outgoing_data(self, msg) -> bytes:
+    def _tn_encode_outgoing_data(self, msg) -> bytes:
         if self.capabilities.mccp2_enabled:
-            return self.compress_out.compress(bytes(msg)) + self.compress_out.flush(
-                zlib.Z_SYNC_FLUSH
-            )
+            return self._tn_compress_out.compress(
+                bytes(msg)
+            ) + self._tn_compress_out.flush(zlib.Z_SYNC_FLUSH)
         else:
             return bytes(msg)
 
-    async def run_writer(self):
+    async def _tn_run_writer(self):
         try:
-            while data := await self._telnet_out_queue.get():
+            while data := await self._tn_out_queue.get():
                 # each data should be a TelnetMessage.
-                encoded = self.encode_outgoing_data(data)
-                self.writer.write(encoded)
+                encoded = self._tn_encode_outgoing_data(data)
+                self._tn_writer.write(encoded)
                 match data:
                     case TelnetNegotiate():
-                        if op := self.options.get(data.option, None):
+                        if op := self._tn_options.get(data.option, None):
                             await op.at_send_negotiate(data)
                     case TelnetSubNegotiate():
-                        if op := self.options.get(data.option, None):
+                        if op := self._tn_options.get(data.option, None):
                             await op.at_send_subnegotiate(data)
-                await self.writer.drain()
+                await self._tn_writer.drain()
         except Exception as err:
             logger.error(traceback.format_exc())
             logger.error(err)
 
-    async def run_negotiation(self):
+    async def _tn_run_negotiation(self):
         try:
-            for code, op in self.options.items():
+            for code, op in self._tn_options.items():
                 await op.start()
 
-            ops = [op.negotiation.wait() for op in self.options.values()]
+            ops = [op.negotiation.wait() for op in self._tn_options.values()]
 
             try:
                 await asyncio.wait_for(asyncio.gather(*ops), 0.5)
             except asyncio.TimeoutError as err:
                 pass
 
-            await self.start()
+            await self.run_link()
         except Exception as err:
             logger.error(traceback.format_exc())
             logger.error(err)
 
-    async def handle_incoming_renderable_gmcp(self, msg):
-        for sendable in msg.sendables:
-            if sendable.renderables:
-                g = Group(*sendable.renderables)
-                result = self.print(g)
-                await self.send_text(result)
-            if self.capabilities.gmcp:
-                op: GMCPOption = self.options.get(TelnetCode.GMCP, None)
-                for command, data in sendable.gmcp:
-                    await op.send_gmcp(command, data)
-
-    async def handle_send_text(self, text: str):
+    async def send_text(self, text: str):
         converted = ensure_crlf(text)
-        await self._telnet_out_queue.put(converted.encode())
+        await self._tn_out_queue.put(converted.encode())
 
     async def send_gmcp(self, command: str, data=None):
         if self.capabilities.gmcp:
-            op: GMCPOption = self.options.get(TelnetCode.GMCP)
+            op: GMCPOption = self._tn_options.get(TelnetCode.GMCP)
             await op.send_gmcp(command, data)
 
     async def send_mssp(self, data: dict[str, str]):
         if self.capabilities.mssp:
-            op: MSSPOption = self.options.get(TelnetCode.MSSP)
+            op: MSSPOption = self._tn_options.get(TelnetCode.MSSP)
             await op.send_mssp(data)
 
 

@@ -35,8 +35,7 @@ game_url = "http://localhost:8000"
 [portal.classes]
 # The class that'll be used to handle the portal.
 application = "mudpy.portal.application.Application"
-telnet = "mudpy.portal.telnet.TelnetProtocol"
-link = "mudpy.portal.link.Link"
+telnet = "mudpy.portal.telnet.TelnetConnection"
 
 [portal.services]
 telnet = "mudpy.portal.telnet.TelnetService"
