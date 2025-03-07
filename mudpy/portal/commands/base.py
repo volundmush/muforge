@@ -1,9 +1,13 @@
 import typing
+import re
 
+CMD_MATCH = re.compile(
+    r"(?s)^(?P<cmd>\S+?)(?:/(?P<switches>\S+)?)?(?P<fullargs> +(?P<args>(?P<lsargs>.+?)(?:=(?P<rsargs>.*))?)?)?$"
+)
 
 class Command:
     """
-    Base class for commands/actions taken by characters.
+    Base class for commands/actions taken by users.
     """
     name = "!NOTSET!"
     priority = 0
@@ -16,7 +20,7 @@ class Command:
     @classmethod
     def check_match(cls, command: str) -> typing.Optional[str]:
         """
-        Check if the command matches the character's input.
+        Check if the command matches the user's input.
 
         Command will already be trimmed and lowercase. Equal to the <cmd> in the regex.
 
@@ -36,30 +40,32 @@ class Command:
         return None
 
     @classmethod
-    def check_access(cls, character) -> bool:
+    def check_access(cls, enactor: "ActingAs") -> bool:
         """
-        Check if the character should have access to the command.
+        Check if the user should have access to the command.
 
         Args:
-            character: The character to check access for.
+            enactor: The user to check access for.
 
         Returns:
-            bool: True if the character has access, False otherwise.
+            bool: True if the user has access, False otherwise.
         """
         return True
 
-    def __init__(self, character, match_cmd, match_data: dict[str, str]):
-        self.character = character
+    def __init__(self, parser, enactor: "ActingAs", match_cmd, match_data: dict[str, str]):
+        self.parser = parser
+        self.enactor = enactor
         self.match_cmd = match_cmd
         self.match_data = match_data
         self.cmd = match_data.get("cmd", "")
         self.switches = [x.strip() for x in match_data.get("switches", "").split("/")]
+        self.fullargs = match_data.get("fullargs", "")
         self.args = match_data.get("args", "")
         self.lsargs = match_data.get("lsargs", "").strip()
         self.rsargs = match_data.get("rsargs", "").strip()
         self.args_array = self.args.split()
 
-    def can_execute(self) -> bool:
+    async def can_execute(self) -> bool:
         """
         Check if the command can be executed.
         """
@@ -69,12 +75,14 @@ class Command:
         """
         Execute the command.
         """
-        if not self.can_execute():
+        if not await self.can_execute():
             return
         try:
             await self.func()
         except self.Error as err:
             self.send_line(f"{err}")
+        except Exception as e:
+            self.send_line(f"An unexpected error occurred: {e}")
 
     async def func(self):
         """
@@ -82,20 +90,26 @@ class Command:
         """
         pass
 
-    def send_text(self, text: str):
-        self.character.send_text(text)
+    async def send_text(self, text: str):
+        await self.parser.send_text(text)
 
-    def send_line(self, text: str):
-        self.character.send_line(text)
+    async def send_line(self, text: str):
+        await self.parser.send_line(text)
+    
+    async def send_rich(self, *args, **kwargs):
+        await self.parser.send_rich(*args, **kwargs)
+    
+    async def send_gmcp(self, command: str, data: dict):
+        await self.parser.send_gmcp(command, data)
+
+    @property
+    def connection(self):
+        return self.parser.connection
 
     @property
     def admin_level(self):
-        return self.character.admin_level
+        return self.enactor.admin_level
 
     @property
     def true_admin_level(self):
-        return self.character.true_admin_level
-
-    @property
-    def session(self):
-        return self.character.session
+        return self.enactor.user.admin_level
