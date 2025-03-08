@@ -49,8 +49,10 @@ nosetests.xml
 # Visual Studio
 .vscode
 
+bin/windows/*.bat
+
 # Obviously don't git logs....
-logs/*.log
+template/logs/*.log
 # We don't want any user-settings either.
 config.user*.toml
 
