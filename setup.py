@@ -28,13 +28,13 @@ def get_scripts():
     this means creating a .bat file.
     """
     if OS_WINDOWS:
-        batpath = os.path.join("bin", "windows", "mudpy.bat")
-        scriptpath = os.path.join(sys.prefix, "Scripts", "mudpy.py")
+        batpath = os.path.join("bin", "windows", "mudforge.bat")
+        scriptpath = os.path.join(sys.prefix, "Scripts", "mudforge.py")
         with open(batpath, "w") as batfile:
             batfile.write('@"%s" "%s" %%*' % (sys.executable, scriptpath))
-        return [batpath, os.path.join("bin", "windows", "mudpy.py")]
+        return [batpath, os.path.join("bin", "windows", "mudforge.py")]
     else:
-        return [os.path.join("bin", "unix", "mudpy")]
+        return [os.path.join("bin", "unix", "mudforge")]
 
 
 def package_data():
@@ -44,19 +44,19 @@ def package_data():
     Make sure we get everything.
     """
     file_set = []
-    for root, dirs, files in os.walk("mudpy"):
+    for root, dirs, files in os.walk("mudforge"):
         for f in files:
             if ".git" in f.split(os.path.normpath(os.path.join(root, f))):
                 # Prevent the repo from being added.
                 continue
-            file_name = os.path.relpath(os.path.join(root, f), "mudpy")
+            file_name = os.path.relpath(os.path.join(root, f), "mudforge")
             file_set.append(file_name)
     return file_set
 
 
 # setup the package
 setup(
-    name="mudpy",
+    name="mudforge",
     version="0.1",
     author="VolundMush",
     maintainer="VolundMush",
@@ -86,8 +86,8 @@ setup(
     ],
     python_requires=">=3.12",
     project_urls={
-        "Source": "https://github.com/volundmush/mudpy",
-        "Issue tracker": "https://github.com/volundmush/mudpy/issues",
+        "Source": "https://github.com/volundmush/mudforge",
+        "Issue tracker": "https://github.com/volundmush/mudforge/issues",
         "Patreon": "https://www.patreon.com/volundmush",
     },
 )
