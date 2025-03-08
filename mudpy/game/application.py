@@ -52,7 +52,7 @@ class Application(OldApplication):
         self.fastapi_config.bind = [bind_to]
 
         if Path(tls["certificate"]).exists():
-            self.fastapi_config.certfile = tls["cert"]
+            self.fastapi_config.certfile = tls["certificate"]
         if Path(tls["key"]).exists():
             self.fastapi_config.keyfile = tls["key"]
 

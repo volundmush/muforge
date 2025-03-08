@@ -15,7 +15,7 @@ from tortoise.transactions import in_transaction
 
 from asyncpg import exceptions
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, Body, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
 from .utils import (
@@ -49,7 +49,7 @@ class BoardCreate(BaseModel):
 
 @router.post("/", response_model=BoardModel)
 async def create_board(
-    board: Annotated[BoardCreate, Depends()],
+    board: Annotated[BoardCreate, Body()],
     user: Annotated[UserModel, Depends(get_current_user)],
     character_id: int,
 ):

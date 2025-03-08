@@ -24,13 +24,13 @@ name = "MudPy"
 # The port that normal telnet will listen on. Set to 0 to disable.
 telnet = 7000
 # The port that secure telnet (TLS) will listen on. Set to 0 to disable.
-telnets = 0
+telnets = 7001
 # The port that SSH will listen on. Set to 0 to disable.
 ssh = 0
 # The Link will attempt to connect to this address after negotiations to connect to the game
 # via SocketIO. It will also be provided to all webclients. So, it should be your external domain
 # name/url or IP address.
-game_url = "http://localhost:8000"
+game_url = "https://127.0.0.1:8000"
 
 [portal.classes]
 # The class that'll be used to handle the portal.
@@ -56,6 +56,10 @@ base = "mudpy.game.locks.lockfuncs"
 # governs who is allowed to use X-Forwarded-For and have it respected.
 trusted_proxy_ips = ["127.0.0.1"]
 port = 8000
+
+[game.commands]
+boards = "mudpy.portal.commands.boards"
+system = "mudpy.portal.commands.system"
 
 [fastapi.routers]
 # every module listed here must have a global named

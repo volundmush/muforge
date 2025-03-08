@@ -2,6 +2,7 @@ import asyncio
 import asyncpg
 from loguru import logger
 from mudpy.utils import class_from_module
+from collections import defaultdict
 
 SETTINGS = dict()
 SERVICES = dict()
@@ -10,6 +11,10 @@ SSL_CONTEXT = None
 LOCKPARSER = None
 LOCKFUNCS = dict()
 PGPOOL: asyncpg.Pool = None
+
+COMMANDS: dict[str, "Command"] = dict()
+
+COMMANDS_PRIORITY: dict[int, list["Command"]] = defaultdict(list)
 
 APP = None
 

@@ -10,7 +10,7 @@ import pydantic
 from asyncpg.exceptions import UniqueViolationError
 
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, Body, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
 from .models import UserModel, CharacterModel
@@ -160,7 +160,7 @@ async def register_user(email: str, hashed_password: str) -> uuid.UUID:
 
 
 @router.post("/register", response_model=TokenResponse)
-async def register(request: Request, data: Annotated[UserLogin, Depends()]):
+async def register(request: Request, data: Annotated[UserLogin, Body()]):
     data.password = data.password.strip()
     ip = get_real_ip(request)
     user_agent = request.headers.get("User-Agent", None)
@@ -204,7 +204,7 @@ class CharacterTokenResponse(TokenResponse):
 
 
 @router.post("/play", response_model=CharacterTokenResponse)
-async def login(request: Request, data: Annotated[CharacterLogin, Depends()]):
+async def play(request: Request, data: Annotated[CharacterLogin, Body()]):
     data.name = data.name.lower().strip()
     data.password = data.password.strip()
 

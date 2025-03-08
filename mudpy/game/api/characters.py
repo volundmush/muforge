@@ -9,7 +9,7 @@ import uuid
 import pydantic
 
 from asyncpg import exceptions
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, Body, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
 from .utils import (
@@ -52,6 +52,14 @@ async def get_characters_active(
     return [CharacterModel(**c) for c in characters]
 
 
+@router.get("/active/me", response_model=ActiveAs)
+async def get_active_character_me(
+    user: Annotated[UserModel, Depends(get_current_user)], character_id: int
+):
+    acting = await get_acting_character(user, character_id)
+    return acting
+
+
 class ActiveUpdate(pydantic.BaseModel):
     admin_level: Optional[int] = None
     spoofed_name: Optional[str] = None
@@ -61,7 +69,7 @@ class ActiveUpdate(pydantic.BaseModel):
 @router.patch("/active/{character_id}", response_model=ActiveAs)
 async def set_active_character(
     user: Annotated[UserModel, Depends(get_current_user)],
-    update: Annotated[ActiveUpdate, Depends()],
+    update: Annotated[ActiveUpdate, Body()],
     character_id: int,
 ):
     acting = await get_acting_character(user, character_id)
@@ -137,7 +145,7 @@ class CharacterCreate(pydantic.BaseModel):
 @router.post("/", response_model=CharacterModel)
 async def create_character(
     user: Annotated[UserModel, Depends(get_current_user)],
-    char_data: Annotated[CharacterCreate, Depends()],
+    char_data: Annotated[CharacterCreate, Body()],
 ):
     async with mudpy.PGPOOL.acquire() as conn:
         try:

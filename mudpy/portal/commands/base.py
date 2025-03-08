@@ -5,20 +5,22 @@ CMD_MATCH = re.compile(
     r"(?s)^(?P<cmd>\S+?)(?:/(?P<switches>\S+)?)?(?P<fullargs> +(?P<args>(?P<lsargs>.+?)(?:=(?P<rsargs>.*))?)?)?$"
 )
 
+
 class Command:
     """
     Base class for commands/actions taken by users.
     """
+
     name = "!NOTSET!"
     priority = 0
     aliases = dict()
     min_level = 0
-    
+
     class Error(Exception):
         pass
 
     @classmethod
-    def check_match(cls, command: str) -> typing.Optional[str]:
+    def check_match(cls, enactor: "ActingAs", command: str) -> typing.Optional[str]:
         """
         Check if the command matches the user's input.
 
@@ -52,9 +54,9 @@ class Command:
         """
         return True
 
-    def __init__(self, parser, enactor: "ActingAs", match_cmd, match_data: dict[str, str]):
+    def __init__(self, parser, match_cmd, match_data: dict[str, str]):
         self.parser = parser
-        self.enactor = enactor
+        self.enactor = parser.active
         self.match_cmd = match_cmd
         self.match_data = match_data
         self.cmd = match_data.get("cmd", "")
@@ -80,9 +82,7 @@ class Command:
         try:
             await self.func()
         except self.Error as err:
-            self.send_line(f"{err}")
-        except Exception as e:
-            self.send_line(f"An unexpected error occurred: {e}")
+            await self.send_line(f"{err}")
 
     async def func(self):
         """
@@ -95,12 +95,18 @@ class Command:
 
     async def send_line(self, text: str):
         await self.parser.send_line(text)
-    
+
     async def send_rich(self, *args, **kwargs):
         await self.parser.send_rich(*args, **kwargs)
-    
+
     async def send_gmcp(self, command: str, data: dict):
         await self.parser.send_gmcp(command, data)
+
+    async def api_call(self, *args, **kwargs):
+        return await self.parser.api_call(*args, **kwargs)
+
+    def make_table(self, *args, **kwargs):
+        return self.parser.make_table(*args, **kwargs)
 
     @property
     def connection(self):

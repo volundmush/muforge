@@ -1,13 +1,21 @@
 import mudpy
 import asyncio
+import jwt
+import typing
+import time
 
-from httpx import AsyncClient
+from httpx import AsyncClient, HTTPStatusError
 from loguru import logger
 from rich.console import Console
+from rich.markup import MarkupError, escape
+from rich.table import Table
+from rich.box import ASCII2
 
 from dataclasses import dataclass, field
 
 from rich.color import ColorType
+from mudpy.game.api.models import ActiveAs
+from mudpy.game.api.auth import TokenResponse, CharacterTokenResponse
 
 
 @dataclass(slots=True)
@@ -92,21 +100,28 @@ class BaseConnection:
             record=True,
             width=self.capabilities.width,
             height=self.capabilities.height,
+            emoji=False,
+            safe_box=True,
         )
         self.console._color_system = self.capabilities.color
         self.parser_stack = list()
-        self.headers: dict[str, str] = {
-            "X-Forwarded-For": self.capabilities.host_address
-        }
         self.client = AsyncClient(
             base_url=mudpy.SETTINGS["PORTAL"]["networking"]["game_url"],
             http2=True,
-            headers=self.headers,
+            verify=False,
         )
         self.jwt = None
+        self.payload: dict[str, "Any"] = dict()
         self.refresh_token = None
         self.shutdown_event = asyncio.Event()
         self.shutdown_cause = None
+
+    def get_headers(self) -> dict[str, str]:
+        out = dict()
+        out["X-Forwarded-For"] = self.capabilities.host_address
+        if self.jwt:
+            out["Authorization"] = f"Bearer {self.jwt}"
+        return out
 
     def flush(self):
         """
@@ -129,12 +144,17 @@ class BaseConnection:
         self.console.print(*args, **new_kwargs)
         return self.console.export_text(clear=True, styles=True)
 
+    def make_table(self, *args, **kwargs) -> Table:
+        kwargs["box"] = ASCII2
+        return Table(*args, **kwargs)
+
     async def setup(self):
         pass
 
     async def run(self):
         async with asyncio.TaskGroup() as tg:
             self.task_group = tg
+            tg.create_task(self.run_refresher())
             await self.setup()
 
             await self.shutdown_event.wait()
@@ -183,6 +203,7 @@ class BaseConnection:
         """
         self.parser_stack.append(parser)
         parser.connection = self
+        parser.index = len(self.parser_stack) - 1
         await parser.on_start()
 
     async def pop_parser(self):
@@ -200,7 +221,16 @@ class BaseConnection:
                 if not self.parser_stack:
                     return
                 parser = self.parser_stack[-1]
-                await parser.handle_command(data.text)
+                try:
+                    await parser.handle_command(data.text)
+                except MarkupError as e:
+                    await self.send_rich(
+                        f"[bold red]Error parsing markup:[/] {escape(str(e))}"
+                    )
+                except Exception as e:
+                    await self.send_rich(
+                        f"[bold red]An unexpected error occurred:[/] {escape(str(e))}"
+                    )
             case ClientUpdate():
                 pass
             case ClientDisconnect():
@@ -221,3 +251,141 @@ class BaseConnection:
                 return
             except Exception as e:
                 logger.error(e)
+
+    async def handle_login(self, token: TokenResponse):
+        self.jwt = token.access_token
+        self.payload = jwt.decode(self.jwt, options={"verify_signature": False})
+        self.refresh_token = token.refresh_token
+        from .parsers.user import UserParser
+
+        up = UserParser()
+        await self.push_parser(up)
+
+    async def run_refresher(self):
+        while True:
+            try:
+                await asyncio.sleep(60)
+                if not self.jwt:
+                    continue
+                # the expiry is stored as a unix timestamp... let's check how much, if any, time is left
+                remaining = self.payload["exp"] - time.time()
+
+                if remaining <= 0:
+                    # this is bad. we somehow missed the expiry time.
+                    # we should probably log this and then cancel the connection.
+                    await self.send_line(
+                        "Your session has expired. Please log in again."
+                    )
+                    self.shutdown_cause = "session_expired"
+                    self.shutdown_event.set()
+                    return
+
+                # if we have at least 5 minutes left, sleep until only 5 minutes are left
+                if remaining > 300:
+                    await asyncio.sleep(remaining - 300)
+
+                # now we have 5 minutes or less left. let's refresh the token.
+                try:
+                    json_data = await self.api_call(
+                        "POST",
+                        "/auth/refresh",
+                        data={"refresh_token": self.refresh_token},
+                    )
+                except HTTPStatusError as e:
+                    await self.send_line(
+                        "Your session has expired. Please log in again."
+                    )
+                    self.shutdown_cause = "session_expired"
+                    self.shutdown_event.set()
+                    return
+                token = TokenResponse(**json_data)
+                self.jwt = token.access_token
+                self.refresh_token = token.refresh_token
+
+            except asyncio.CancelledError:
+                return
+
+    async def api_call(
+        self,
+        method: str,
+        path: str,
+        *,
+        query: dict = None,
+        json: dict = None,
+        data: dict = None,
+        headers: dict[str, str] = None,
+    ) -> dict:
+        """
+        Generic method to call the game server's REST API.
+
+        :param method: HTTP method (e.g., 'GET', 'POST')
+        :param path: The endpoint path (e.g., '/boards')
+        :param query: Dictionary of query parameters to include in the URL.
+        :param json: JSON serializable body (if needed).
+        :return: The parsed JSON response.
+        :raises HTTPStatusError: For non-200 responses.
+        """
+        use_headers = self.get_headers()
+        if headers:
+            use_headers.update(headers)
+        try:
+            response = await self.client.request(
+                method,
+                path,
+                params=query,
+                json=json,
+                data=data,
+                headers=use_headers,
+            )
+            ver = response.http_version
+            # Raise an exception if the status code indicates an error.
+            response.raise_for_status()
+            return response.json()
+        except HTTPStatusError as exc:
+            logger.error(
+                f"HTTP error on {method} {path}: {exc.response.status_code} {exc.response.text}"
+            )
+            # Optionally, handle the error (for example, re-raise or return a default value)
+            raise
+
+    async def api_stream(
+        self,
+        method: str,
+        path: str,
+        *,
+        query: dict = None,
+        json: dict = None,
+        data: dict = None,
+        headers: dict[str, str] = None,
+    ) -> typing.AsyncIterator[str]:
+        """
+        Opens a streaming request to the given endpoint and yields chunks of text.
+        For Server-Sent Events (SSE), you'll typically want to parse these chunks
+        line-by-line and accumulate complete events.
+        """
+        use_headers = self.get_headers()
+        if headers:
+            use_headers.update(headers)
+        try:
+            async with self.client.stream(
+                method, path, params=query, json=json, data=data, headers=use_headers
+            ) as response:
+                # Raise an exception for non-2xx status codes.
+                response.raise_for_status()
+
+                # .aiter_text() is an async generator that yields the response
+                # body as decoded text chunks. Each chunk may contain partial lines
+                # or multiple lines—so SSE parsing usually requires a buffer.
+                data = ""
+                async for chunk in response.aiter_text():
+                    data += chunk
+                    lines = data.split("\n")
+                    for line in lines[:-1]:
+                        yield line
+                    data = lines[-1]
+        except HTTPStatusError as exc:
+            # Log or handle errors as needed
+            logger.error(
+                f"HTTP error: {exc.response.status_code} - {exc.response.text}"
+            )
+            raise
