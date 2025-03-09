@@ -94,7 +94,7 @@ FROM loginrecords l
 -- characters section
 CREATE TABLE characters
 (
-    id             SERIAL PRIMARY KEY,
+    id             UUID PRIMARY KEY   DEFAULT gen_random_uuid(),
     user_id        UUID      NOT NULL,
     name           CITEXT    NOT NULL,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -114,7 +114,7 @@ CREATE TRIGGER characters_trigger
 CREATE TABLE character_spoofs
 (
     id           SERIAL PRIMARY KEY,
-    character_id INT       NOT NULL,
+    character_id UUID       NOT NULL,
     spoofed_name CITEXT    NOT NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -132,7 +132,7 @@ FROM character_spoofs s
 
 CREATE TABLE characters_active
 (
-    id          INT       NOT NULL UNIQUE,
+    id          UUID       NOT NULL UNIQUE,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     admin_level INT       NOT NULL DEFAULT 0,
     spoofing_id INT       NOT NULL,
@@ -204,7 +204,7 @@ CREATE TABLE faction_members
 (
     id           SERIAL PRIMARY KEY,
     faction_id   INT       NOT NULL,
-    character_id INT       NOT NULL,
+    character_id UUID       NOT NULL,
     rank_id      INT       NOT NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -341,7 +341,7 @@ CREATE TABLE channel_members
 (
     id           SERIAL PRIMARY KEY,
     channel_id   INT       NOT NULL,
-    character_id INT       NOT NULL,
+    character_id UUID       NOT NULL,
     listening    BOOLEAN   NOT NULL DEFAULT TRUE,
     aliases      TEXT[]    NOT NULL DEFAULT '{}',
     created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -360,7 +360,7 @@ CREATE TABLE channel_messages
 (
     id           BIGSERIAL PRIMARY KEY,
     channel_id   INT       NOT NULL,
-    character_id INT       NOT NULL,
+    character_id UUID       NOT NULL,
     message      TEXT      NOT NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -385,7 +385,7 @@ CREATE TABLE frequencies
     created_at  TIMESTAMPTZ    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMPTZ    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     lock_data   JSONB       NOT NULL DEFAULT json_object(),
-    owner_id    INT          NULL,
+    owner_id    UUID          NULL,
     CONSTRAINT fk_owner
         FOREIGN KEY (owner_id) REFERENCES characters (id) ON DELETE SET NULL
 );
@@ -398,7 +398,7 @@ CREATE TABLE frequencies_admins
 (
     id           SERIAL PRIMARY KEY,
     frequency_id INT       NOT NULL,
-    character_id INT       NOT NULL,
+    character_id UUID       NOT NULL,
     -- 0 is moderator, 1 is admin.
     admin_type   INT       NOT NULL DEFAULT 0,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -418,7 +418,7 @@ CREATE TABLE frequency_members
 (
     id           SERIAL PRIMARY KEY,
     frequency_id INT       NOT NULL,
-    character_id INT       NOT NULL,
+    character_id UUID       NOT NULL,
     listening    BOOLEAN   NOT NULL DEFAULT TRUE,
     aliases      TEXT[]    NOT NULL DEFAULT '{}',
     created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -528,7 +528,7 @@ CREATE TABLE scene_participants
 (
     id               SERIAL PRIMARY KEY,
     scene_id         INT       NOT NULL,
-    character_id     INT       NOT NULL,
+    character_id     UUID       NOT NULL,
     -- 3 is owner/GM, 2 is co-owner, 1 is tagged for interest, 0 is simply there.
     participant_type INT       NOT NULL DEFAULT 0,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -604,7 +604,7 @@ CREATE TABLE plot_runners
 (
     id           SERIAL PRIMARY KEY,
     plot_id      INT       NOT NULL,
-    character_id INT       NOT NULL,
+    character_id UUID       NOT NULL,
     -- 2 is runner, 1 is co-runner, 0 is helper.
     runner_type  INT       NOT NULL DEFAULT 0,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

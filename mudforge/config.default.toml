@@ -13,7 +13,7 @@ key = "key.pem"
 [postgresql]
 # The information that'll be fed straight into
 # asyncpg's connection function via **kwargs.
-dsn = "postgres://postgres:password@localhost:5432/phantasm"
+dsn = "postgres://mudforge:mudforge@localhost:5432/mudforge"
 
 [jwt]
 # These are the defaults for the JWT tokens.
@@ -33,7 +33,24 @@ external = "0.0.0.0"
 # the class that'll be used to handle the launcher.
 launcher = "mudforge.utils.Launcher"
 # The name of the project.
-name = "mudforge"
+
+[mssp]
+# the following values will fill the MSSP (MUD Server Status Protocol)
+# dictionary that's sent to clients that request it.
+# Put all static information here. dynamic information like PLAYERS
+# will be filled in by the server.
+NAME = "mudforge"
+CHARSET = "UTF-8"
+CODEBASE = "mudforge"
+FAMILY = "Custom"
+"CRAWL DELAY" = -1
+PORT = 7000
+SSL = 7001
+
+ANSI = 1
+UTF-8 = 1
+"XTERM 256 COLORS" = 1
+"XTERM TRUE COLORS" = 1
 
 [portal.networking]
 # The port that normal telnet will listen on. Set to 0 to disable.
@@ -77,6 +94,7 @@ telnets = "mudforge.portal.telnet.TLSTelnetService"
 # from the module are loaded.
 boards = "mudforge.portal.commands.boards"
 system = "mudforge.portal.commands.system"
+help = "mudforge.portal.commands.help"
 
 [game]
 

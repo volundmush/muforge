@@ -25,6 +25,8 @@ class ALevelCommand(Command):
     """
 
     name = "alevel"
+    aliases = {"alevel": 2}
+    help_category = "System"
 
     async def func(self):
         if not self.args.isdigit():
@@ -50,3 +52,14 @@ class ALevelCommand(Command):
 
         await self.send_line(f"Your acting admin_level has been set to {level}.")
         await self.send_line(f"Operation took {end_time - start_time:.4f} seconds.")
+
+
+class Think(Command):
+    name = "think"
+    help_category = "System"
+    aliases = {"think": 2, "echo": 3}
+
+    async def func(self):
+        if not self.args:
+            raise self.Error("Think what?")
+        await self.send_rich(self.args)

@@ -21,7 +21,7 @@ class UserModel(BaseModel):
 
 
 class CharacterModel(BaseModel):
-    id: int
+    id: uuid.UUID
     user_id: uuid.UUID
     name: str
     created_at: datetime

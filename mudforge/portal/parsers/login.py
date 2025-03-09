@@ -22,20 +22,29 @@ class LoginParser(BaseParser):
 
     async def show_welcome(self):
         # TODO: Figure out a welcome screen solution.
-        await self.send_line(f"Welcome to {mudforge.SETTINGS['SHARED']['name']}!")
+        await self.send_line(f"Welcome to {mudforge.SETTINGS['MSSP']['NAME']}!")
+        help_table = self.make_table("Command", "Description")
+        help_table.add_row("register <email>=<password>", "Register a new account.")
+        help_table.add_row("login <email>=<password>", "Login to an existing account.")
+        help_table.add_row("info", "Display game information. (Same as MSSP)")
+        help_table.add_row("quit", "Disconnect from the game.")
+        await self.send_rich(help_table)
 
     async def on_start(self):
         await self.show_welcome()
 
     async def handle_help(self, args: str):
         help_table = self.make_table("Command", "Description", title="Help")
-        help_table.add_row("help", "Show this help message.")
-        help_table.add_row("login <email>=<password>", "Login to the game.")
         help_table.add_row("register <email>=<password>", "Register a new account.")
-        # help_table.add_row("play <character>=<password>", "Login to a character.")
-        help_table.add_row("quit", "Quit the game.")
-        help_table.add_row("look", "Show the welcome screen.")
+        help_table.add_row("login <email>=<password>", "Login to an existing account.")
+        help_table.add_row("info", "Display game information. (Same as MSSP)")
+        help_table.add_row("quit", "Disconnect from the game.")
         await self.send_rich(help_table)
+
+    async def handle_info(self):
+        data = await self.connection.gather_mssp()
+        rendered = "\r\n".join([f"{k}: {v}" for k, v in data.items()])
+        await self.send_line(rendered)
 
     async def handle_login(self, lsargs: str, rsargs: str):
         if not lsargs and rsargs:
@@ -69,7 +78,7 @@ class LoginParser(BaseParser):
 
         try:
             data = u.model_dump()
-            json_data = await self.api_call("POST", "/auth/register", data=data)
+            json_data = await self.api_call("POST", "/auth/register", json=data)
         except HTTPStatusError as e:
             await self.send_line(f"Registration failed: {e}")
             return
@@ -90,8 +99,7 @@ class LoginParser(BaseParser):
         await self.send_rich(processed)
 
     async def handle_command(self, event: str):
-        matched = CMD_MATCH.match(event)
-        if not matched:
+        if not (matched := CMD_MATCH.match(event)):
             await self.send_line("Invalid command. Type 'help' for help.")
             return
         match_dict = {k: v for k, v in matched.groupdict().items() if v is not None}
@@ -104,6 +112,8 @@ class LoginParser(BaseParser):
                 await self.handle_help(args)
             case "login":
                 await self.handle_login(lsargs, rsargs)
+            case "info":
+                await self.handle_info()
             case "register":
                 await self.handle_register(lsargs, rsargs)
             case "play":

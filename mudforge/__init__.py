@@ -11,6 +11,8 @@ SSL_CONTEXT = None
 LOCKPARSER = None
 LOCKFUNCS = dict()
 PGPOOL: asyncpg.Pool = None
+LISTENERS = dict()
+LISTENERS_TABLE = defaultdict(list)
 
 COMMANDS: dict[str, "Command"] = dict()
 

@@ -12,6 +12,7 @@ class Command:
     """
 
     name = "!NOTSET!"
+    help_category = "Uncategorized"
     priority = 0
     aliases = dict()
     min_level = 0

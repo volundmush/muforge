@@ -53,7 +53,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> Use
     return UserModel(**user)
 
 
-async def get_acting_character(user: UserModel, character_id: int) -> ActiveAs:
+async def get_acting_character(user: UserModel, character_id: uuid.UUID) -> ActiveAs:
     async with mudforge.PGPOOL.acquire() as conn:
         async with conn.transaction():
             character_data = await conn.fetchrow(

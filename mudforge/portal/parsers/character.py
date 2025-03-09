@@ -16,7 +16,9 @@ class CharacterParser(BaseParser):
         self.active = active
 
     async def on_start(self):
-        pass
+        await self.send_line(
+            f"You have entered the game as {self.active.character.name}."
+        )
 
     def available_commands(self) -> dict[0, list["Command"]]:
         out = dict()

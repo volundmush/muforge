@@ -41,7 +41,7 @@ async def get_characters(user: Annotated[UserModel, Depends(get_current_user)]):
 
 @router.get("/active", response_model=typing.List[CharacterModel])
 async def get_characters_active(
-    user: Annotated[UserModel, Depends(get_current_user)], character_id: int
+    user: Annotated[UserModel, Depends(get_current_user)], character_id: uuid.UUID
 ):
     acting = await get_acting_character(user, character_id)
     async with mudforge.PGPOOL.acquire() as conn:
@@ -54,7 +54,7 @@ async def get_characters_active(
 
 @router.get("/active/me", response_model=ActiveAs)
 async def get_active_character_me(
-    user: Annotated[UserModel, Depends(get_current_user)], character_id: int
+    user: Annotated[UserModel, Depends(get_current_user)], character_id: uuid.UUID
 ):
     acting = await get_acting_character(user, character_id)
     return acting
@@ -70,7 +70,7 @@ class ActiveUpdate(pydantic.BaseModel):
 async def set_active_character(
     user: Annotated[UserModel, Depends(get_current_user)],
     update: Annotated[ActiveUpdate, Body()],
-    character_id: int,
+    character_id: uuid.UUID,
 ):
     acting = await get_acting_character(user, character_id)
     async with mudforge.PGPOOL.acquire() as conn:
@@ -121,7 +121,7 @@ async def set_active_character(
 
 @router.get("/{character_id}", response_model=CharacterModel)
 async def get_character(
-    user: Annotated[UserModel, Depends(get_current_user)], character_id: int
+    user: Annotated[UserModel, Depends(get_current_user)], character_id: uuid.UUID
 ):
     async with mudforge.PGPOOL.acquire() as conn:
         character_data = await conn.fetchrow(
@@ -137,9 +137,6 @@ async def get_character(
 
 class CharacterCreate(pydantic.BaseModel):
     name: str
-
-    class Config:
-        from_attributes = True
 
 
 @router.post("/", response_model=CharacterModel)

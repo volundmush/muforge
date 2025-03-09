@@ -51,7 +51,7 @@ class BoardCreate(BaseModel):
 async def create_board(
     board: Annotated[BoardCreate, Body()],
     user: Annotated[UserModel, Depends(get_current_user)],
-    character_id: int,
+    character_id: uuid.UUID,
 ):
     acting = await get_acting_character(user, character_id)
     if not (matched := RE_BOARD_ID.match(board.board_key)):
@@ -104,7 +104,7 @@ async def create_board(
 
 @router.get("/", response_model=typing.List[BoardModel])
 async def list_boards(
-    user: Annotated[UserModel, Depends(get_current_user)], character_id: int
+    user: Annotated[UserModel, Depends(get_current_user)], character_id: uuid.UUID
 ):
     acting = await get_acting_character(user, character_id)
     boards = []
@@ -120,7 +120,7 @@ async def list_boards(
 async def get_board(
     board_key: str,
     user: Annotated[UserModel, Depends(get_current_user)],
-    character_id: int,
+    character_id: uuid.UUID,
 ):
     acting = await get_acting_character(user, character_id)
     async with mudforge.PGPOOL.acquire() as conn:
@@ -141,7 +141,7 @@ async def get_board(
 async def list_posts(
     board_key: str,
     user: Annotated[UserModel, Depends(get_current_user)],
-    character_id: int,
+    character_id: uuid.UUID,
 ):
     acting = await get_acting_character(user, character_id)
     async with mudforge.PGPOOL.acquire() as conn:
@@ -178,7 +178,7 @@ async def get_post(
     board_key: str,
     post_key: str,
     user: Annotated[UserModel, Depends(get_current_user)],
-    character_id: int,
+    character_id: uuid.UUID,
 ):
     acting = await get_acting_character(user, character_id)
     async with mudforge.PGPOOL.acquire() as conn:
@@ -223,7 +223,7 @@ async def create_post(
     board_key: str,
     post: PostCreate,
     user: Annotated[UserModel, Depends(get_current_user)],
-    character_id: int,
+    character_id: uuid.UUID,
 ):
     acting = await get_acting_character(user, character_id)
     async with mudforge.PGPOOL.acquire() as conn:
@@ -275,7 +275,7 @@ async def create_reply_post(
     post_key: str,
     reply: ReplyCreate,
     user: Annotated[UserModel, Depends(get_current_user)],
-    character_id: int,
+    character_id: uuid.UUID,
 ):
     acting = await get_acting_character(user, character_id)
     async with mudforge.PGPOOL.acquire() as conn:

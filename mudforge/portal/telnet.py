@@ -485,11 +485,13 @@ class MTTSOption(TelnetOption):
                 | "MUDLET"
                 | "MUSHCLIENT"
                 | "PUTTY"
-                | "BEIP"
+                # | "BEIP"
                 | "POTATO"
                 | "TINYFUGUE"
             ):
                 max_color = max(max_color, ColorType.EIGHT_BIT)
+            case "BEIP":
+                max_color = max(max_color, ColorType.TRUECOLOR)
             case "MUDLET":
                 if client_version is not None and client_version.startswith("1.1"):
                     max_color = max(max_color, ColorType.EIGHT_BIT)

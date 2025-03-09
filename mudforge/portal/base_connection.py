@@ -266,10 +266,18 @@ class BaseConnection:
             case ClientGMCP():
                 pass
 
+    async def gather_mssp(self) -> dict:
+        base_mssp = mudforge.SETTINGS["MSSP"].copy()
+        live_mssp = await self.api_call("GET", "/misc/mssp")
+        base_mssp.update(live_mssp)
+        return base_mssp
+
+    async def distribute_mssp(self):
+        if not self.capabilities.mssp:
+            return
+
     async def run_link(self):
         from .parsers.login import LoginParser
-
-        await self.push_parser(LoginParser())
 
         async with AsyncClient(
             base_url=mudforge.SETTINGS["PORTAL"]["networking"]["game_url"],
@@ -277,6 +285,9 @@ class BaseConnection:
             verify=False,
         ) as client:
             self.client = client
+
+            await self.push_parser(LoginParser())
+            await self.distribute_mssp()
 
             while True:
                 try:
@@ -287,10 +298,13 @@ class BaseConnection:
                 except Exception as e:
                     logger.error(e)
 
-    async def handle_login(self, token: TokenResponse):
+    async def handle_token(self, token: TokenResponse):
         self.jwt = token.access_token
         self.payload = jwt.decode(self.jwt, options={"verify_signature": False})
         self.refresh_token = token.refresh_token
+
+    async def handle_login(self, token: TokenResponse):
+        await self.handle_token(token)
         from .parsers.user import UserParser
 
         up = UserParser()
@@ -324,7 +338,7 @@ class BaseConnection:
                     json_data = await self.api_call(
                         "POST",
                         "/auth/refresh",
-                        data={"refresh_token": self.refresh_token},
+                        json={"refresh_token": self.refresh_token},
                     )
                 except HTTPStatusError as e:
                     await self.send_line(
@@ -334,8 +348,7 @@ class BaseConnection:
                     self.shutdown_event.set()
                     return
                 token = TokenResponse(**json_data)
-                self.jwt = token.access_token
-                self.refresh_token = token.refresh_token
+                await self.handle_token(token)
 
             except asyncio.CancelledError:
                 return

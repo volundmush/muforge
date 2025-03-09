@@ -121,15 +121,23 @@ async def handle_login(
 async def register_user(email: str, hashed_password: str) -> uuid.UUID:
     async with mudforge.PGPOOL.acquire() as conn:
         async with conn.transaction():
+
+            admin_level = 0
+
+            # if there are no users, make this user an admin.
+            if not (await conn.fetchrow("SELECT id FROM users")):
+                admin_level = 10
+
             try:
                 # Insert the new user.
                 user_row = await conn.fetchrow(
                     """
-                    INSERT INTO users (email)
-                    VALUES ($1)
+                    INSERT INTO users (email, admin_level)
+                    VALUES ($1, $2)
                     RETURNING id
                     """,
                     email,
+                    admin_level,
                 )
             except UniqueViolationError:
                 raise HTTPException(
@@ -224,12 +232,18 @@ async def play(request: Request, data: Annotated[CharacterLogin, Body()]):
     return CharacterTokenResponse(character=character_row["id"], **result.dict())
 
 
+class RefreshTokenModel(BaseModel):
+    refresh_token: str
+
+
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(ref: str):
+async def refresh_token(ref: Annotated[RefreshTokenModel, Body()]):
     jwt_settings = mudforge.SETTINGS["JWT"]
     try:
         payload = jwt.decode(
-            ref, jwt_settings["secret"], algorithms=[jwt_settings["algorithm"]]
+            ref.refresh_token,
+            jwt_settings["secret"],
+            algorithms=[jwt_settings["algorithm"]],
         )
     except jwt.PyJWTError as e:
         raise HTTPException(
