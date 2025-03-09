@@ -82,4 +82,4 @@ class Application(OldApplication):
                 mudforge.LOCKFUNCS[name] = func
 
     async def start(self):
-        await serve(self.fastapi_instance, self.fastapi_config)
+        self.task_group.create_task(serve(self.fastapi_instance, self.fastapi_config))

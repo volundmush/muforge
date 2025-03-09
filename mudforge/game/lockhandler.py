@@ -1,5 +1,6 @@
 import typing
 import lark
+import mudforge
 from dataclasses import dataclass
 from lark.exceptions import LarkError
 from fastapi import HTTPException, status
@@ -9,6 +10,17 @@ PARSER_CACHE = dict()
 
 @dataclass(slots=True)
 class LockArguments:
+    """
+    A dataclass that's passed into lockfunc calls.
+
+    The object is the thing being accessed.
+    The subject is the user/character trying to access it.
+
+    The access_type represents the kind of access, like "read" or "post".
+
+    The args are the arguments passed to the lock function.
+    """
+
     object: typing.Any
     subject: "ActingAs"
     access_type: str
@@ -19,15 +31,36 @@ class LockHandler:
     """
     This is the base lockhandler used for generic lock checks. It should be specialized for
     different types of lock-holders or users if needed.
+
+    The recommended use is to have a "model" representing an entity that can have locks,
+    and it must have a self.lock_data that works like a dict[str, str].
+
+    That entity will then be the LockArguments.object that's passed into a lockfunc.
     """
+
+    def _validate_lock_funcs(self, lock: lark.Tree):
+        """
+        Given a lark tree, validate all of the lock_funcs in the tree.
+        If any don't exist, raise an HTTP_400_BAD_REQUEST.
+        """
+        for node in lock.iter_subtrees():
+            if node.data == "function_call":
+                func_name = node.children[0].value
+                if func_name not in mudforge.LOCKFUNCS:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Unknown lock function: {func_name}",
+                    )
 
     async def set_lock(self, access_type: str, lock: str):
         try:
             parsed = mudforge.LOCKPARSER.parse(lock)
+            self._validate_lock_funcs(parsed)
             PARSER_CACHE[lock] = parsed
         except LarkError as e:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid lock: {e}"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid lock syntax: {e}",
             )
         self.lock_data[access_type] = lock
 

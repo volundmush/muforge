@@ -104,11 +104,7 @@ class BaseConnection:
         )
         self.console._color_system = self.capabilities.color
         self.parser_stack = list()
-        self.client = AsyncClient(
-            base_url=mudforge.SETTINGS["PORTAL"]["networking"]["game_url"],
-            http2=True,
-            verify=False,
-        )
+        self.client = None
         self.jwt = None
         self.payload: dict[str, "Any"] = dict()
         self.refresh_token = None
@@ -275,14 +271,21 @@ class BaseConnection:
 
         await self.push_parser(LoginParser())
 
-        while True:
-            try:
-                data = await self.user_input_queue.get()
-                await self.handle_user_input(data)
-            except asyncio.CancelledError:
-                return
-            except Exception as e:
-                logger.error(e)
+        async with AsyncClient(
+            base_url=mudforge.SETTINGS["PORTAL"]["networking"]["game_url"],
+            http2=True,
+            verify=False,
+        ) as client:
+            self.client = client
+
+            while True:
+                try:
+                    data = await self.user_input_queue.get()
+                    await self.handle_user_input(data)
+                except asyncio.CancelledError:
+                    return
+                except Exception as e:
+                    logger.error(e)
 
     async def handle_login(self, token: TokenResponse):
         self.jwt = token.access_token
@@ -369,7 +372,6 @@ class BaseConnection:
                 data=data,
                 headers=use_headers,
             )
-            ver = response.http_version
             # Raise an exception if the status code indicates an error.
             response.raise_for_status()
             return response.json()

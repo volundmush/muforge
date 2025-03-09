@@ -2,7 +2,7 @@ import pydantic
 import typing
 import uuid
 from datetime import datetime, timedelta, timezone
-from mudforge.game.locks.lockhandler import LockHandler
+from mudforge.game.lockhandler import LockHandler
 
 
 from pydantic import BaseModel

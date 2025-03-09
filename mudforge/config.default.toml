@@ -1,5 +1,9 @@
 dynaconf_merge = true
 
+# DO NOT CHANGE THIS FILE to alter the configuration.
+# instead, create a config.user.toml file in your
+# project folder and override the values you need.
+
 [tls]
 # The paths to TLS cert and key the whole application should use for things.
 # if these aren't set right, TLS won't engage.
@@ -7,7 +11,19 @@ certificate = "cert.pem"
 key = "key.pem"
 
 [postgresql]
+# The information that'll be fed straight into
+# asyncpg's connection function via **kwargs.
 dsn = "postgres://postgres:password@localhost:5432/phantasm"
+
+[jwt]
+# These are the defaults for the JWT tokens.
+# They can be overridden by the user.
+# PLEASE CHANGE THE SECRET IN YOUR config.user.toml file!
+algorithm = "HS256"
+secret = "CHANGE_ME_DAMMIT"
+token_expire_minutes = 30
+# 7 days in minutes.
+refresh_expire_minutes = 10080
 
 [shared]
 # The external IP address to bind to.
@@ -19,59 +35,77 @@ launcher = "mudforge.utils.Launcher"
 # The name of the project.
 name = "mudforge"
 
-
 [portal.networking]
 # The port that normal telnet will listen on. Set to 0 to disable.
 telnet = 7000
 # The port that secure telnet (TLS) will listen on. Set to 0 to disable.
 telnets = 7001
 # The port that SSH will listen on. Set to 0 to disable.
-ssh = 0
+ssh = 7002
 # The Link will attempt to connect to this address after negotiations to connect to the game
 # via SocketIO. It will also be provided to all webclients. So, it should be your external domain
 # name/url or IP address.
 game_url = "https://127.0.0.1:8000"
 
 [portal.classes]
+# The key-values here are used to fill the mudforge.CLASSES dictionary
+# on boot. It's done for caching purposes.
+# This makes the project very moddable as you can specify whichever
+# classes you want to be used for X purposes.
+
 # The class that'll be used to handle the portal.
 application = "mudforge.portal.application.Application"
-telnet = "mudforge.portal.telnet.TelnetConnection"
+# The class that'll be used to handle the portal's telnet/ssh connections.
+# it inherits from mudforge.portal.base_connection.BaseConnection
+# so anything that wants to change the behavior of the connection
+# should inherit from telnet.
+telnet_connection = "mudforge.portal.telnet.TelnetConnection"
+ssh_connection = "mudforge.portal.ssh.SSHConnection"
+# The parsers that interpret user commands at different states.
+login_parser = "mudforge.portal.parsers.login.LoginParser"
+user_parser = "mudforge.portal.parsers.user.UserParser"
+character_parser = "mudforge.portal.parsers.character.CharacterParser"
 
 [portal.services]
+# Classes that'll be launched by the portal when it boots.
 telnet = "mudforge.portal.telnet.TelnetService"
 telnets = "mudforge.portal.telnet.TLSTelnetService"
+
+[portal.commands]
+# These commands are imported by the character_parser.
+# The key only matters for overrides or disables. All callables
+# from the module are loaded.
+boards = "mudforge.portal.commands.boards"
+system = "mudforge.portal.commands.system"
 
 [game]
 
 [game.classes]
+# The key-values here are used to fill the mudforge.CLASSES dictionary
+# on boot. It's done for caching purposes.
+# This makes the project very moddable as you can specify whichever
+# classes you want to be used for X purposes.
+
 # The class that'll be used to handle the game.
 application = "mudforge.game.application.Application"
 
 [game.lockfuncs]
 # The key is only used for overrides or disables. It loads all functions defined
 # in the module which do not begin with an underscore.
-base = "mudforge.game.locks.lockfuncs"
+base = "mudforge.game.lockfuncs"
 
 [game.networking]
 # governs who is allowed to use X-Forwarded-For and have it respected.
+# This should really only be your proxy servers or the host running
+# the portal.
 trusted_proxy_ips = ["127.0.0.1"]
 port = 8000
-
-[game.commands]
-boards = "mudforge.portal.commands.boards"
-system = "mudforge.portal.commands.system"
 
 [fastapi.routers]
 # every module listed here must have a global named
 # "router" to be imported.
+# The key is the mount path. like /auth or /users
 auth = "mudforge.game.api.auth"
 users = "mudforge.game.api.users"
 characters = "mudforge.game.api.characters"
 boards = "mudforge.game.api.boards"
-
-[jwt]
-algorithm = "HS256"
-secret = "CHANGE_ME_DAMMIT"
-token_expire_minutes = 30
-# 7 days in minutes.
-refresh_expire_minutes = 10080

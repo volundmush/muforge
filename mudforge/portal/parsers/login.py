@@ -81,7 +81,8 @@ class LoginParser(BaseParser):
 
     async def handle_quit(self):
         await self.send_line("Goodbye!")
-        self.connection.shutdown()
+        self.connection.shutdown_cause = "quit"
+        self.connection.shutdown_event.set()
 
     async def handle_rich(self, args: str):
         await self.send_line(f"Provided to Rich: {args}")

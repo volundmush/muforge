@@ -32,6 +32,9 @@ class TelnetCode(IntEnum):
     NAWS = 31
     LINEMODE = 34
 
+    # Negotiate about charset in use.
+    CHARSET = 42
+
     # MNES: Mud New - Environ standard
     MNES = 39
 
@@ -245,6 +248,8 @@ class TelnetOption:
     start_local: bool = False
     start_remote: bool = False
 
+    __slots__ = ("protocol", "status", "negotiation")
+
     def __init__(self, protocol):
         self.protocol = protocol
         self.status = TelnetOptionPerspective()
@@ -361,6 +366,45 @@ class NAWSOption(TelnetOption):
         self.negotiation.set()
 
 
+class CHARSETOption(TelnetOption):
+    code = TelnetCode.CHARSET
+    support_local = True
+    support_remote = True
+    start_local = True
+    start_remote = True
+
+    __slots__ = ("enabled",)
+
+    def __init__(self, protocol):
+        super().__init__(protocol)
+        self.enabled = None
+
+    async def at_receive_subnegotiate(self, msg):
+        if len(msg.data) < 2:
+            return
+        if msg.data[0] == 0x02:
+            encoding = msg.data[1:].decode()
+            await self.protocol.change_capabilities({"encoding": encoding})
+            self.negotiation.set()
+
+    async def request_charset(self):
+        data = bytearray()
+        data.append(0x01)  # REQUEST
+        data.extend(b" ascii utf-8")
+
+        await self.send_subnegotiate(data)
+
+    async def at_remote_enable(self):
+        if not self.enabled:
+            self.enabled = "remote"
+            await self.request_charset()
+
+    async def at_local_enable(self):
+        if not self.enabled:
+            self.enabled = "local"
+            await self.request_charset()
+
+
 class MTTSOption(TelnetOption):
     code = TelnetCode.MTTS
     support_remote = True
@@ -380,6 +424,8 @@ class MTTSOption(TelnetOption):
         (2, "vt100"),
         (1, "ansi"),
     ]
+
+    __slots__ = ("number_requests", "last_received")
 
     def __init__(self, protocol):
         super().__init__(protocol)
@@ -481,7 +527,7 @@ class MTTSOption(TelnetOption):
             case "XTERM":
                 max_color = max(max_color, ColorType.EIGHT_BIT)
 
-        if max_color != self.protocol.capabilities:
+        if max_color != self.protocol.capabilities.color:
             out["color"] = max_color
 
         if out:
@@ -679,6 +725,7 @@ class TelnetConnection(BaseConnection):
         MCCP2Option,
         MCCP3Option,
         GMCPOption,
+        CHARSETOption,
         #        LineModeOption,
         #        EOROption,
     ]
@@ -725,9 +772,16 @@ class TelnetConnection(BaseConnection):
                 await self._tn_at_receive_raw_data(data)
             except asyncio.CancelledError:
                 return
+            except ConnectionResetError as e:
+                self.shutdown_cause = "reader_reset"
+                self.shutdown_event.set()
+                return
             except Exception as err:
                 logger.error(traceback.format_exc())
                 logger.error(err)
+                self.shutdown_cause = "reader_unknown_error"
+                self.shutdown_event.set()
+                return
 
     async def _tn_at_receive_raw_data(self, data: bytes):
         """
@@ -923,7 +977,7 @@ class TelnetService(Service):
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
         address, port = writer.get_extra_info("peername")
-        protocol = mudforge.CLASSES["telnet"](reader, writer, self)
+        protocol = mudforge.CLASSES["telnet_connection"](reader, writer, self)
         protocol.capabilities.session_name = generate_name(
             self.op_key, mudforge.APP.game_sessions.keys()
         )

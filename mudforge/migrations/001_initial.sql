@@ -1,6 +1,20 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS citext;
 
+CREATE OR REPLACE FUNCTION notify_table_change() RETURNS trigger AS $$
+BEGIN
+    PERFORM pg_notify(
+        'table_changes',
+        json_build_object(
+            'table', TG_TABLE_NAME,
+            'operation', TG_OP,
+            'id', COALESCE(NEW.id, OLD.id)
+        )::text
+    );
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- auth section for users
 
 CREATE TABLE users
@@ -22,6 +36,10 @@ ALTER TABLE users
     ADD CONSTRAINT valid_email CHECK (
         email ~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$'
         );
+
+CREATE TRIGGER users_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON users
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 CREATE TABLE passwords
 (
@@ -89,6 +107,10 @@ CREATE TABLE characters
 
 CREATE UNIQUE INDEX unique_character_name ON characters (name) WHERE deleted_at IS NULL;
 
+CREATE TRIGGER characters_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON characters
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
+
 CREATE TABLE character_spoofs
 (
     id           SERIAL PRIMARY KEY,
@@ -120,6 +142,10 @@ CREATE TABLE characters_active
     CONSTRAINT fk_spoof
         FOREIGN KEY (spoofing_id) REFERENCES character_spoofs (id) ON DELETE RESTRICT
 );
+
+CREATE TRIGGER characters_active_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON characters_active
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 CREATE VIEW characters_active_view AS
 SELECT c.*,
@@ -153,6 +179,10 @@ CREATE TABLE factions
     lock_data          JSONB       NOT NULL DEFAULT json_object()
 );
 
+CREATE TRIGGER factions_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON factions
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
+
 CREATE TABLE faction_ranks
 (
     id          SERIAL PRIMARY KEY,
@@ -165,6 +195,10 @@ CREATE TABLE faction_ranks
     CONSTRAINT fk_faction
         FOREIGN KEY (faction_id) REFERENCES factions (id) ON DELETE CASCADE
 );
+
+CREATE TRIGGER faction_ranks_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON faction_ranks
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 CREATE TABLE faction_members
 (
@@ -183,6 +217,10 @@ CREATE TABLE faction_members
     CONSTRAINT fk_rank
         FOREIGN KEY (rank_id) REFERENCES faction_ranks (id) ON DELETE RESTRICT
 );
+
+CREATE TRIGGER faction_members_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON faction_members
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 -- Myrddin's BBS section
 
@@ -207,6 +245,10 @@ CREATE UNIQUE INDEX unique_board_order ON boards (faction_id, board_order) WHERE
 -- And without a faction
 CREATE UNIQUE INDEX unique_board_name_no_faction ON boards (name) WHERE faction_id IS NULL;
 CREATE UNIQUE INDEX unique_board_order_no_faction ON boards (board_order) WHERE faction_id IS NULL;
+
+CREATE TRIGGER boards_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON boards
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 CREATE VIEW board_view AS
 SELECT b.*,
@@ -235,6 +277,10 @@ CREATE TABLE board_posts
 
 -- Gimme unique orders per board
 CREATE UNIQUE INDEX unique_post_order ON board_posts (board_id, post_order, sub_order);
+
+CREATE TRIGGER boards_trigger_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON board_posts
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 CREATE VIEW board_post_view AS
 SELECT p.*,
@@ -287,6 +333,10 @@ CREATE TABLE channels
     lock_data   JSONB       NOT NULL DEFAULT json_object()
 );
 
+CREATE TRIGGER channels_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON channels
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
+
 CREATE TABLE channel_members
 (
     id           SERIAL PRIMARY KEY,
@@ -302,6 +352,10 @@ CREATE TABLE channel_members
         FOREIGN KEY (character_id) REFERENCES characters (id) ON DELETE CASCADE
 );
 
+CREATE TRIGGER channel_members_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON channel_members
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
+
 CREATE TABLE channel_messages
 (
     id           BIGSERIAL PRIMARY KEY,
@@ -315,6 +369,10 @@ CREATE TABLE channel_messages
     CONSTRAINT fk_character
         FOREIGN KEY (character_id) REFERENCES characters (id) ON DELETE CASCADE
 );
+
+CREATE TRIGGER channel_messages_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON channel_messages
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 -- Radio Frequency section is very much like channels but for roleplaying...
 
@@ -332,6 +390,10 @@ CREATE TABLE frequencies
         FOREIGN KEY (owner_id) REFERENCES characters (id) ON DELETE SET NULL
 );
 
+CREATE TRIGGER frequencies_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON frequencies
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
+
 CREATE TABLE frequencies_admins
 (
     id           SERIAL PRIMARY KEY,
@@ -348,6 +410,10 @@ CREATE TABLE frequencies_admins
 );
 CREATE UNIQUE INDEX unique_frequency_admin ON frequencies_admins (frequency_id, character_id);
 
+CREATE TRIGGER frequencies_admins_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON frequencies_admins
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
+
 CREATE TABLE frequency_members
 (
     id           SERIAL PRIMARY KEY,
@@ -363,6 +429,9 @@ CREATE TABLE frequency_members
         FOREIGN KEY (character_id) REFERENCES characters (id) ON DELETE CASCADE
 );
 
+CREATE TRIGGER frequency_members_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON frequency_members
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 CREATE TABLE frequency_messages
 (
@@ -378,6 +447,9 @@ CREATE TABLE frequency_messages
         FOREIGN KEY (spoof_id) REFERENCES character_spoofs (id) ON DELETE RESTRICT
 );
 
+CREATE TRIGGER frequency_messages_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON frequency_messages
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 -- Rooms Section
 
@@ -392,6 +464,10 @@ CREATE TABLE regions
         FOREIGN KEY (parent_id) REFERENCES regions (id) ON DELETE SET NULL
 );
 
+CREATE TRIGGER regions_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON regions
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
+
 CREATE TABLE region_rooms
 (
     id          SERIAL PRIMARY KEY,
@@ -403,6 +479,10 @@ CREATE TABLE region_rooms
     CONSTRAINT fk_region
         FOREIGN KEY (region_id) REFERENCES regions (id) ON DELETE RESTRICT
 );
+
+CREATE TRIGGER region_rooms_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON region_rooms
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 CREATE TABLE room_events
 (
@@ -421,6 +501,10 @@ CREATE TABLE room_events
         FOREIGN KEY (spoof_id) REFERENCES character_spoofs (id) ON DELETE RESTRICT
 );
 
+CREATE TRIGGER room_events_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON room_events
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
+
 -- Roleplay Logging
 
 CREATE TABLE scenes
@@ -436,6 +520,10 @@ CREATE TABLE scenes
     ended_at     TIMESTAMPTZ NULL
 );
 
+CREATE TRIGGER scenes_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON scenes
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
+
 CREATE TABLE scene_participants
 (
     id               SERIAL PRIMARY KEY,
@@ -450,6 +538,10 @@ CREATE TABLE scene_participants
     CONSTRAINT fk_character
         FOREIGN KEY (character_id) REFERENCES characters (id) ON DELETE RESTRICT
 );
+
+CREATE TRIGGER scene_participants_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON scene_participants
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 -- Gimme a unique character_id per scene_participant's scene...
 CREATE UNIQUE INDEX unique_scene_participant ON scene_participants (scene_id, character_id);
@@ -469,6 +561,10 @@ CREATE TABLE scene_events
         FOREIGN KEY (room_id) REFERENCES region_rooms (id) ON DELETE RESTRICT
 );
 
+CREATE TRIGGER scene_events_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON scene_events
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
+
 CREATE TABLE scene_frequency_messages
 (
     id           BIGSERIAL PRIMARY KEY,
@@ -484,6 +580,10 @@ CREATE TABLE scene_frequency_messages
         FOREIGN KEY (frequency_id) REFERENCES frequencies (id) ON DELETE RESTRICT
 );
 
+CREATE TRIGGER scene_frequency_messages_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON scene_frequency_messages
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
+
 CREATE TABLE plots
 (
     id          SERIAL PRIMARY KEY,
@@ -495,6 +595,10 @@ CREATE TABLE plots
     started_at  TIMESTAMPTZ NULL,
     ended_at    TIMESTAMPTZ NULL
 );
+
+CREATE TRIGGER plots_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON plots
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 CREATE TABLE plot_runners
 (
@@ -511,6 +615,10 @@ CREATE TABLE plot_runners
         FOREIGN KEY (character_id) REFERENCES characters (id) ON DELETE CASCADE
 );
 
+CREATE TRIGGER plot_runners_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON plot_runners
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
+
 -- Gimme a unique character_id per plot_runner's plot...
 CREATE UNIQUE INDEX unique_plot_runner ON plot_runners (plot_id, character_id);
 
@@ -523,6 +631,10 @@ CREATE TABLE info_holders
     entity_id   INT    NOT NULL,
     category    CITEXT NOT NULL
 );
+
+CREATE TRIGGER info_holders_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON info_holders
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 CREATE UNIQUE INDEX unique_info_holder ON info_holders (entity_type, entity_id, category);
 
@@ -538,5 +650,9 @@ CREATE TABLE info_files
     CONSTRAINT fk_holder
         FOREIGN KEY (holder_id) REFERENCES info_holders (id) ON DELETE CASCADE
 );
+
+CREATE TRIGGER info_files_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON info_files
+    FOR EACH ROW EXECUTE FUNCTION notify_table_change();
 
 CREATE UNIQUE INDEX unique_info_name ON info_files (holder_id, name);

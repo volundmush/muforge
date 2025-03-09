@@ -43,6 +43,7 @@ class Application:
     def __init__(self):
         self.valid_services: list[Service] = []
         self.shutdown_event = asyncio.Event()
+        self.task_group = None
 
     async def setup(self):
         await self.setup_services()
@@ -64,9 +65,10 @@ class Application:
         self.valid_services.sort(key=lambda x: x.start_priority)
         logger.info("Starting services...")
         async with asyncio.TaskGroup() as tg:
+            self.task_group = tg
             for srv in self.valid_services:
                 tg.create_task(srv.run())
-            tg.create_task(self.start())
+            await self.start()
 
             await self.shutdown_event.wait()
             raise asyncio.CancelledError()

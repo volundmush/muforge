@@ -24,7 +24,7 @@ class Application(_Application):
     async def setup(self):
         await super().setup()
 
-        for k, v in mudforge.SETTINGS["GAME"]["commands"].items():
+        for k, v in mudforge.SETTINGS["PORTAL"]["commands"].items():
             for name, command in callables_from_module(v).items():
                 mudforge.COMMANDS[command.name] = command
                 mudforge.COMMANDS_PRIORITY[command.priority].append(command)
