@@ -3,14 +3,15 @@ import jwt
 import typing
 import uuid
 
-from asyncpg import AsyncConnection
+from asyncpg import Connection
 from fastapi import HTTPException, status
 
-from .base import transaction, from_pool
+from .base import transaction, from_pool, stream
 from .models import UserModel, CharacterModel
 
+
 @from_pool
-async def get_user(conn: AsyncConnection, user_id: uuid.UUID) -> UserModel:
+async def get_user(conn: Connection, user_id: uuid.UUID) -> UserModel:
     user_data = await conn.fetchrow(
         """
         SELECT *
@@ -26,8 +27,9 @@ async def get_user(conn: AsyncConnection, user_id: uuid.UUID) -> UserModel:
         )
     return UserModel(**user_data)
 
+
 @from_pool
-async def find_user(conn: AsyncConnection, email: str) -> UserModel:
+async def find_user(conn: Connection, email: str) -> UserModel:
     user_data = await conn.fetchrow(
         """
         SELECT *
@@ -43,8 +45,9 @@ async def find_user(conn: AsyncConnection, email: str) -> UserModel:
         )
     return UserModel(**user_data)
 
-@transaction
-async def list_users(conn: AsyncConnection) -> typing.AsynncGenerator[UserModel, None]:
+
+@stream
+async def list_users(conn: Connection) -> typing.AsyncGenerator[UserModel, None]:
     query = "SELECT * FROM users"
     async for row in conn.cursor(query):
         yield UserModel(**row)

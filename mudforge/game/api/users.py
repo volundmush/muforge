@@ -14,7 +14,13 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
-from .utils import crypt_context, oauth2_scheme, get_real_ip, get_current_user, streaming_list
+from .utils import (
+    crypt_context,
+    oauth2_scheme,
+    get_real_ip,
+    get_current_user,
+    streaming_list,
+)
 from ..db.models import UserModel, CharacterModel, ActiveAs
 from ..db import characters as characters_db, users as users_db
 
@@ -27,8 +33,8 @@ async def get_users(user: Annotated[UserModel, Depends(get_current_user)]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions."
         )
-    
-    users = await users_db.list_users()
+
+    users = users_db.list_users()
     return streaming_list(users)
 
 
@@ -40,7 +46,7 @@ async def get_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions."
         )
-    
+
     found = await users_db.get_user(user_id)
     return found
 
@@ -54,5 +60,5 @@ async def get_user_characters(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions."
         )
 
-    characters = await characters_db.list_characters_user(user_id)
+    characters = characters_db.list_characters_user(user_id)
     return streaming_list(characters)

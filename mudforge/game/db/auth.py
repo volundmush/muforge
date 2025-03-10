@@ -4,7 +4,7 @@ import typing
 import uuid
 
 from datetime import datetime, timedelta, timezone
-from asyncpg import AsyncConnection
+from asyncpg import Connection
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import HTTPException, status
 from .base import transaction, from_pool
@@ -13,11 +13,13 @@ from ..api.utils import crypt_context
 
 
 @transaction
-async def register_user(conn: AsyncConnection, email: str, hashed_password: str) -> UserModel:
+async def register_user(
+    conn: Connection, email: str, hashed_password: str
+) -> UserModel:
     admin_level = 0
 
     # if there are no users, make this user an admin.
-    if not (await conn.fetchrow("SELECT id FROM users LIMIT 1")):
+    if not (await conn.fetchrow("SELECT id FROM users")):
         admin_level = 10
 
     try:
@@ -26,7 +28,7 @@ async def register_user(conn: AsyncConnection, email: str, hashed_password: str)
             """
             INSERT INTO users (email, admin_level)
             VALUES ($1, $2)
-            RETURNING id
+            RETURNING *
             """,
             email,
             admin_level,
@@ -58,8 +60,11 @@ async def register_user(conn: AsyncConnection, email: str, hashed_password: str)
     )
     return user
 
+
 @transaction
-async def authenticate_user(conn: AsyncConnection, email: str, password: str, ip: str, user_agent: str | None) -> UserModel:
+async def authenticate_user(
+    conn: Connection, email: str, password: str, ip: str, user_agent: str | None
+) -> UserModel:
     # Retrieve the latest password row for this user.
     retrieved_user = await conn.fetchrow(
         """

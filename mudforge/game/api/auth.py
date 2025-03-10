@@ -69,9 +69,7 @@ class TokenResponse(BaseModel):
         return cls(access_token=token, refresh_token=refresh, token_type="bearer")
 
 
-async def handle_login(
-    request: Request, email: str, password: str
-) -> TokenResponse:
+async def handle_login(request: Request, email: str, password: str) -> TokenResponse:
     ip = get_real_ip(request)
     user_agent = request.headers.get("User-Agent", None)
 
@@ -81,7 +79,7 @@ async def handle_login(
 
 @router.post("/register", response_model=TokenResponse)
 async def register(request: Request, data: Annotated[UserLogin, Body()]):
-    
+
     try:
         hashed = crypt_context.hash(data.password)
     except Exception as e:
@@ -99,36 +97,6 @@ async def login(
     request: Request, data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ):
     return await handle_login(request, data.username, data.password)
-
-
-class CharacterLogin(BaseModel):
-    name: str
-    password: str
-
-
-class CharacterTokenResponse(TokenResponse):
-    character: int
-
-
-@router.post("/play", response_model=CharacterTokenResponse)
-async def play(request: Request, data: Annotated[CharacterLogin, Body()]):
-    data.name = data.name.lower().strip()
-    data.password = data.password.strip()
-
-    async with mudforge.PGPOOL.acquire() as conn:
-        character_row = await conn.fetchrow(
-            """
-            SELECT c.id,c.user_id
-            FROM characters c
-            WHERE c.name = $1
-            """,
-            data.name,
-        )
-    if not character_row:
-        raise HTTPException(status_code=400, detail="Invalid credentials.")
-
-    result = await handle_login(request, data.password, character_row["user_id"])
-    return CharacterTokenResponse(character=character_row["id"], **result.model_dump())
 
 
 class RefreshTokenModel(BaseModel):
@@ -157,7 +125,7 @@ async def refresh_token(ref: Annotated[RefreshTokenModel, Body()]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload."
         )
-    
+
     # Verify user exists. This will raise if not.
     user = await auth_db.get_user(sub)
 

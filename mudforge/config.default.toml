@@ -92,7 +92,6 @@ telnets = "mudforge.portal.telnet.TLSTelnetService"
 # These commands are imported by the character_parser.
 # The key only matters for overrides or disables. All callables
 # from the module are loaded.
-boards = "mudforge.portal.commands.boards"
 system = "mudforge.portal.commands.system"
 help = "mudforge.portal.commands.help"
 
@@ -126,4 +125,4 @@ port = 8000
 auth = "mudforge.game.api.auth"
 users = "mudforge.game.api.users"
 characters = "mudforge.game.api.characters"
-boards = "mudforge.game.api.boards"
+system = "mudforge.game.api.system"
