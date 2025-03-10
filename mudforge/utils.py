@@ -104,9 +104,14 @@ def get_config(mode: str) -> dict:
 
     files = [root_path / "config.default.toml"]
 
+    # Instead of fixed names, find all framework config files matching
+    # the pattern in the current working directory.
+    # If you name them as config.framework-001.toml, config.framework-002.toml, etc.,
+    # a lexicographical sort should work reliably.
+    plugin_files = sorted(Path.cwd().glob("config.plugin-*.toml"))
+    files.extend(plugin_files)
+
     for f in (
-        "framework",
-        f"framework-{mode}",
         "user",
         f"user-{mode}",
         "secrets",
