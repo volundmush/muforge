@@ -17,7 +17,7 @@ from .base_connection import BaseConnection, ClientCommand
 class TelnetConnection(BaseConnection):
 
     def __repr__(self):
-        return f"<TelnetConnection: {self.capabilities.session_name}>"
+        return f"<TelnetConnection: {self.session_name}>"
 
     def __init__(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, server
