@@ -22,7 +22,7 @@ from .utils import (
 )
 from mudforge.utils import subscription, queue_iterator
 
-from .models import UserModel, CharacterModel, ActiveAs
+from ..db.models import UserModel, CharacterModel, ActiveAs
 
 router = APIRouter()
 

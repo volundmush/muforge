@@ -3,19 +3,43 @@ import jwt
 import uuid
 import pydantic
 import orjson
+import typing
 from datetime import datetime
 from dataclasses import dataclass
 from typing import Annotated, Optional
-from passlib.context import CryptContext
+
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi import Request, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 
-crypt_context = CryptContext(schemes=["argon2"])
+from mudforge.game.utils import crypt_context
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-from .models import UserModel, CharacterModel, ActiveAs
+from ..db.models import UserModel, CharacterModel, ActiveAs
+from ..db import characters as characters_db
 
+async def json_array_generator(data: typing.AsyncGenerator[pydantic.BaseModel, None]) -> typing.AsyncGenerator[str, None]:
+        # Start the JSON array
+        yield "["
+        first = True
+        # Stream the rows from the DB
+        async for element in data:
+            # Insert commas between elements
+            if not first:
+                yield ","
+            else:
+                first = False
+            # Convert your Pydantic model to JSON. (Assumes CharacterModel has .json())
+            yield element.model_dump_json()
+        # End the JSON array
+        yield "]"
+
+def streaming_list(data: typing.AsyncGenerator[pydantic.BaseModel, None]) -> StreamingResponse:
+    return StreamingResponse(
+        json_array_generator(data),
+        media_type="application/json",
+    )
 
 def get_real_ip(request: Request):
     """
@@ -54,52 +78,14 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> Use
 
 
 async def get_acting_character(user: UserModel, character_id: uuid.UUID) -> ActiveAs:
-    async with mudforge.PGPOOL.acquire() as conn:
-        async with conn.transaction():
-            character_data = await conn.fetchrow(
-                "SELECT * FROM characters WHERE id = $1", character_id
-            )
-            if character_data is None:
-                raise HTTPException(status_code=404, detail="Character not found")
-            character = CharacterModel(**character_data)
-            if character.user_id != user.id:
-                raise HTTPException(
-                    status_code=403, detail="Character does not belong to you."
-                )
-            active = await conn.fetchrow(
-                "SELECT * FROM characters_active_view WHERE id = $1", character.id
-            )
-            if not active:
-                spoof = await conn.fetchrow(
-                    "SELECT * from character_spoofs WHERE character_id = $1 AND spoofed_name = $2",
-                    character.id,
-                    character.name,
-                )
-                if not spoof:
-                    spoof = await conn.fetchrow(
-                        "INSERT INTO character_spoofs (character_id, spoofed_name) VALUES ($1, $2) RETURNING *",
-                        character.id,
-                        character.name,
-                    )
-                new_active = await conn.fetchrow(
-                    "INSERT INTO characters_active (id, spoofing_id) VALUES ($1, $2) RETURNING *",
-                    character.id,
-                    spoof["id"],
-                )
-                active = await conn.fetchrow(
-                    "SELECT * FROM characters_active_view WHERE id = $1", character.id
-                )
-            await conn.execute(
-                "UPDATE characters SET last_active_at=now() WHERE id=$1",
-                character_id,
-            )
-            act = ActiveAs(
-                user=user,
-                character=character,
-                admin_level=active["admin_level"],
-                spoofed_name=active["spoofed_name"],
-                spoofing_id=active["spoofing_id"],
-                metadata=active["metadata"],
-                active_created_at=active["active_created_at"],
-            )
-            return act
+    character = await characters_db.find_character_id(character_id)
+    if character.user_id != user.id:
+        raise HTTPException(
+            status_code=403, detail="Character does not belong to you."
+        )
+    
+    act = ActiveAs(
+        user=user,
+        character=character
+    )
+    return act

@@ -13,7 +13,8 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Body, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
-from .models import UserModel, CharacterModel
+from ..db.models import UserModel, CharacterModel
+from ..db import auth as auth_db
 from .utils import crypt_context, oauth2_scheme, get_real_ip, get_current_user, ActiveAs
 
 router = APIRouter()
@@ -69,110 +70,18 @@ class TokenResponse(BaseModel):
 
 
 async def handle_login(
-    request: Request, password: str, user: uuid.UUID
+    request: Request, email: str, password: str
 ) -> TokenResponse:
     ip = get_real_ip(request)
     user_agent = request.headers.get("User-Agent", None)
 
-    async with mudforge.PGPOOL.acquire() as conn:
-        async with conn.transaction():
-            # Retrieve the latest password row for this user.
-            password_row = await conn.fetchrow(
-                """
-                SELECT password
-                FROM user_passwords
-                WHERE user_id = $1
-                """,
-                user,
-            )
-            if not (
-                password_row
-                and password_row["password"]
-                and crypt_context.verify(password, password_row["password"])
-            ):
-                await conn.execute(
-                    """
-                    INSERT INTO loginrecords (user_id, ip_address, success, user_agent)
-                    VALUES ($1, $2, $3, $4)
-                    """,
-                    user,
-                    ip,
-                    False,
-                    user_agent,
-                )
-                raise HTTPException(status_code=400, detail="Invalid credentials.")
-
-            # Record successful login.
-            await conn.execute(
-                """
-                INSERT INTO loginrecords (user_id, ip_address, success, user_agent)
-                VALUES ($1, $2, $3, $4)
-                """,
-                user,
-                ip,
-                True,
-                user_agent,
-            )
-
-    # Create tokens based on the user's email.
-    return TokenResponse.from_uuid(user)
-
-
-async def register_user(email: str, hashed_password: str) -> uuid.UUID:
-    async with mudforge.PGPOOL.acquire() as conn:
-        async with conn.transaction():
-
-            admin_level = 0
-
-            # if there are no users, make this user an admin.
-            if not (await conn.fetchrow("SELECT id FROM users")):
-                admin_level = 10
-
-            try:
-                # Insert the new user.
-                user_row = await conn.fetchrow(
-                    """
-                    INSERT INTO users (email, admin_level)
-                    VALUES ($1, $2)
-                    RETURNING id
-                    """,
-                    email,
-                    admin_level,
-                )
-            except UniqueViolationError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="User already exists.",
-                )
-            user_id = user_row["id"]
-
-            # Insert the password record.
-            password_row = await conn.fetchrow(
-                """
-                INSERT INTO passwords (user_id, password)
-                VALUES ($1, $2)
-                RETURNING id
-                """,
-                user_id,
-                hashed_password,
-            )
-            password_id = password_row["id"]
-
-            # Update the user to set the current password.
-            await conn.execute(
-                "UPDATE users SET current_password_id=$1 WHERE id=$2",
-                password_id,
-                user_id,
-            )
-            return user_id
+    result = await auth_db.authenticate_user(email, password, ip, user_agent)
+    return TokenResponse.from_uuid(result.id)
 
 
 @router.post("/register", response_model=TokenResponse)
 async def register(request: Request, data: Annotated[UserLogin, Body()]):
-    data.password = data.password.strip()
-    ip = get_real_ip(request)
-    user_agent = request.headers.get("User-Agent", None)
-
+    
     try:
         hashed = crypt_context.hash(data.password)
     except Exception as e:
@@ -180,8 +89,8 @@ async def register(request: Request, data: Annotated[UserLogin, Body()]):
             status_code=status.HTTP_400_BAD_REQUEST, detail="Error hashing password."
         )
 
-    user = await register_user(str(data.email).lower().strip(), hashed)
-    token = TokenResponse.from_uuid(user)
+    user = await auth_db.register_user(data.email, hashed)
+    token = TokenResponse.from_uuid(user.id)
     return token
 
 
@@ -189,17 +98,7 @@ async def register(request: Request, data: Annotated[UserLogin, Body()]):
 async def login(
     request: Request, data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ):
-    data.password = data.password.strip()
-
-    async with mudforge.PGPOOL.acquire() as conn:
-        if not (
-            user := await conn.fetchrow(
-                "SELECT id FROM users WHERE email = $1", data.username
-            )
-        ):
-            raise HTTPException(status_code=400, detail="Invalid credentials.")
-
-    return await handle_login(request, data.password, user["id"])
+    return await handle_login(request, data.username, data.password)
 
 
 class CharacterLogin(BaseModel):
@@ -229,7 +128,7 @@ async def play(request: Request, data: Annotated[CharacterLogin, Body()]):
         raise HTTPException(status_code=400, detail="Invalid credentials.")
 
     result = await handle_login(request, data.password, character_row["user_id"])
-    return CharacterTokenResponse(character=character_row["id"], **result.dict())
+    return CharacterTokenResponse(character=character_row["id"], **result.model_dump())
 
 
 class RefreshTokenModel(BaseModel):
@@ -258,13 +157,8 @@ async def refresh_token(ref: Annotated[RefreshTokenModel, Body()]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload."
         )
-    async with mudforge.PGPOOL.acquire() as conn:
-        if not (
-            user_row := await conn.fetchrow("SELECT id FROM users WHERE id = $1", sub)
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload.",
-            )
+    
+    # Verify user exists. This will raise if not.
+    user = await auth_db.get_user(sub)
 
     return TokenResponse.from_uuid(sub)

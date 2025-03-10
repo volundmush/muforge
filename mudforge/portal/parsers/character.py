@@ -1,6 +1,6 @@
 import typing
 import mudforge
-from mudforge.game.api.models import ActiveAs
+from mudforge.game.db.models import ActiveAs
 from loguru import logger
 
 from rich.markup import escape, MarkupError

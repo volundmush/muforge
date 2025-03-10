@@ -14,8 +14,9 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
-from .utils import crypt_context, oauth2_scheme, get_real_ip, get_current_user
-from .models import UserModel, CharacterModel, ActiveAs
+from .utils import crypt_context, oauth2_scheme, get_real_ip, get_current_user, streaming_list
+from ..db.models import UserModel, CharacterModel, ActiveAs
+from ..db import characters as characters_db, users as users_db
 
 router = APIRouter()
 
@@ -26,11 +27,9 @@ async def get_users(user: Annotated[UserModel, Depends(get_current_user)]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions."
         )
-
-    async with mudforge.PGPOOL.acquire() as conn:
-        users = await conn.fetch("SELECT * FROM users")
-
-    return [UserModel(**u) for u in users]
+    
+    users = await users_db.list_users()
+    return streaming_list(users)
 
 
 @router.get("/{user_id}", response_model=UserModel)
@@ -41,16 +40,9 @@ async def get_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions."
         )
-
-    async with mudforge.PGPOOL.acquire() as conn:
-        user = await conn.fetchrow("SELECT * FROM users WHERE id = $1", user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
-        )
-
-    return UserModel(**user)
+    
+    found = await users_db.get_user(user_id)
+    return found
 
 
 @router.get("/{user_id}/characters")
@@ -62,14 +54,5 @@ async def get_user_characters(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions."
         )
 
-    async with mudforge.PGPOOL.acquire() as conn:
-        u = await conn.fetchrow("SELECT * FROM users WHERE id = $1", user_id)
-        if not u:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
-            )
-        characters = await conn.fetch(
-            "SELECT * FROM characters WHERE user_id = $1", user_id
-        )
-
-    return [CharacterModel(**c) for c in characters]
+    characters = await characters_db.list_characters_user(user_id)
+    return streaming_list(characters)

@@ -11,6 +11,6 @@ hypercorn[h3]
 pyjwt
 passlib
 argon2-cffi
-aerich
+asyncpgpip
 httpx[http2]
-aiomudtelnet
+aiomudtelnet @ git+https://github.com/volundmush/aiomudtelnet@main

@@ -1,5 +1,5 @@
 from .base import Command
-from mudforge.game.api.models import ActiveAs
+from mudforge.game.db.models import ActiveAs
 import time
 
 

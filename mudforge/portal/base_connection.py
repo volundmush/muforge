@@ -12,7 +12,7 @@ from rich.table import Table
 from rich.box import ASCII2
 
 from rich.color import ColorType
-from mudforge.game.api.models import ActiveAs
+from mudforge.game.db.models import ActiveAs
 from mudforge.game.api.auth import TokenResponse, CharacterTokenResponse
 from aiomudtelnet import MudClientCapabilities
 

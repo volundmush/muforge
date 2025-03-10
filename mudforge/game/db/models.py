@@ -33,11 +33,6 @@ class CharacterModel(BaseModel):
 class ActiveAs(BaseModel):
     user: UserModel
     character: CharacterModel
-    admin_level: int
-    active_created_at: datetime
-    spoofing_id: int
-    spoofed_name: str
-    metadata: dict[typing.Any, typing.Any]
 
 
 class BoardModel(BaseModel, LockHandler):

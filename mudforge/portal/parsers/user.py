@@ -7,7 +7,7 @@ from mudforge.utils import validate_rich, partial_match
 from rich.markup import MarkupError
 from rich.table import Table
 
-from mudforge.game.api.models import ActiveAs, CharacterModel, UserModel
+from mudforge.game.db.models import ActiveAs, CharacterModel, UserModel
 
 
 class UserParser(BaseParser):
