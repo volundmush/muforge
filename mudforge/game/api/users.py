@@ -1,23 +1,11 @@
-from datetime import datetime, timedelta, timezone
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typing
-import mudforge
-import jwt
 import uuid
-import pydantic
 
-from asyncpg import exceptions
-from pydantic import BaseModel
-
-
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from .utils import (
-    crypt_context,
-    oauth2_scheme,
-    get_real_ip,
     get_current_user,
     streaming_list,
 )
@@ -51,7 +39,7 @@ async def get_user(
     return found
 
 
-@router.get("/{user_id}/characters")
+@router.get("/{user_id}/characters", response_model=typing.List[CharacterModel])
 async def get_user_characters(
     user_id: uuid.UUID, user: Annotated[UserModel, Depends(get_current_user)]
 ):

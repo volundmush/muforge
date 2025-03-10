@@ -7,14 +7,12 @@ import typing
 import uuid
 import pydantic
 
-from asyncpg.exceptions import UniqueViolationError
-
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Body, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
 from ..db.models import UserModel, CharacterModel
-from ..db import auth as auth_db
+from ..db import auth as auth_db, users as users_db
 from .utils import crypt_context, oauth2_scheme, get_real_ip, get_current_user, ActiveAs
 
 router = APIRouter()
@@ -127,6 +125,6 @@ async def refresh_token(ref: Annotated[RefreshTokenModel, Body()]):
         )
 
     # Verify user exists. This will raise if not.
-    user = await auth_db.get_user(sub)
+    user = await users_db.get_user(sub)
 
     return TokenResponse.from_uuid(sub)
