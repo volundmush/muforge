@@ -1,7 +1,7 @@
 import asyncio
 import asyncpg
 from loguru import logger
-from mudforge.utils import class_from_module
+from mudforge.utils import class_from_module, Broadcaster
 from collections import defaultdict
 
 SETTINGS = dict()
@@ -13,6 +13,7 @@ LOCKFUNCS = dict()
 PGPOOL: asyncpg.Pool = None
 LISTENERS = dict()
 LISTENERS_TABLE = defaultdict(list)
+BROADCASTERS: dict[str, Broadcaster] = defaultdict(Broadcaster)
 
 COMMANDS: dict[str, "Command"] = dict()
 

@@ -47,7 +47,7 @@ class Application(OldApplication):
         tls = settings["TLS"]
         networking = settings["GAME"]["networking"]
         self.fastapi_config = Config()
-        self.fastapi_config.title = shared["name"]
+        self.fastapi_config.title = settings["MSSP"]["NAME"]
 
         external = shared["external"]
         bind_to = f"{external}:{networking['port']}"

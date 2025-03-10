@@ -13,3 +13,4 @@ passlib
 argon2-cffi
 aerich
 httpx[http2]
+aiomudtelnet

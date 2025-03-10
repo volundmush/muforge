@@ -80,3 +80,8 @@ class FactionModel(BaseModel, LockHandler):
     member_permissions: set[str]
     public_permissions: set[str]
     lock_data: dict[str, str]
+
+
+class SystemUpdate(BaseModel):
+    admin_level: int
+    message: str

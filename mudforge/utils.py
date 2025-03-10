@@ -11,10 +11,10 @@ import time
 import sys
 import ssl
 from pathlib import Path
-import mudforge
 import argparse
 import signal
 import asyncio
+from contextlib import asynccontextmanager
 
 from datetime import datetime, timezone
 from inspect import getmembers, getmodule, getmro, ismodule, trace
@@ -48,6 +48,8 @@ def setup_logging(name: str):
 
 
 async def setup_program(program: str, settings: dict):
+    import mudforge
+
     mudforge.SETTINGS.update(settings)
 
     if not Path("logs").exists():
@@ -68,6 +70,8 @@ async def setup_program(program: str, settings: dict):
 
 
 async def run_program(program: str, settings: dict):
+    import mudforge
+
     pidfile = Path(f"{program}.pid")
     if pidfile.exists():
         raise FileExistsError(
@@ -93,6 +97,7 @@ async def run_program(program: str, settings: dict):
 
 
 def get_config(mode: str) -> dict:
+    import mudforge
     from dynaconf import Dynaconf
 
     root_path = Path(mudforge.__file__).parent
@@ -635,6 +640,8 @@ class LogTime:
 
 
 class Launcher:
+    import mudforge
+
     root_dir = Path(mudforge.__file__).parent
     components = ["portal", "game"]
 
@@ -727,3 +734,52 @@ class Launcher:
 
     async def run_stop(self):
         component = self.check_component(self.cmd_args.component)
+
+
+class Broadcaster:
+    def __init__(self):
+        self._subscribers = set()
+
+    def subscribe(self) -> asyncio.Queue:
+        """
+        Create a new subscription queue and register it.
+        """
+        queue = asyncio.Queue()
+        self._subscribers.add(queue)
+        return queue
+
+    def unsubscribe(self, queue: asyncio.Queue):
+        """
+        Remove a subscription queue.
+        """
+        self._subscribers.discard(queue)
+
+    async def broadcast(self, message):
+        """
+        Broadcast a message to all subscribers.
+        """
+        # Make a copy to avoid modification during iteration.
+        for queue in list(self._subscribers):
+            await queue.put(message)
+
+
+@asynccontextmanager
+async def subscription(broadcaster: Broadcaster):
+    """
+    Async context manager that subscribes to a broadcaster and automatically
+    unsubscribes when done.
+    """
+    queue = broadcaster.subscribe()
+    try:
+        yield queue
+    finally:
+        broadcaster.unsubscribe(queue)
+
+
+async def queue_iterator(queue: asyncio.Queue):
+    """
+    Async generator to iterate over queue items.
+    It will run indefinitely, so you'll need some sort of stop condition.
+    """
+    while item := await queue.get():
+        yield item

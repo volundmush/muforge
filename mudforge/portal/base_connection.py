@@ -3,7 +3,7 @@ import asyncio
 import jwt
 import typing
 import time
-
+from datetime import datetime
 from httpx import AsyncClient, HTTPStatusError
 from loguru import logger
 from rich.console import Console
@@ -11,56 +11,18 @@ from rich.markup import MarkupError, escape
 from rich.table import Table
 from rich.box import ASCII2
 
-from dataclasses import dataclass, field
-
 from rich.color import ColorType
 from mudforge.game.api.models import ActiveAs
 from mudforge.game.api.auth import TokenResponse, CharacterTokenResponse
+from aiomudtelnet import MudClientCapabilities
 
-
-@dataclass(slots=True)
-class Capabilities:
-    session_name: str = ""
-    encryption: bool = False
-    client_name: str = "UNKNOWN"
-    client_version: str = "UNKNOWN"
-    host_address: str = "UNKNOWN"
-    host_port: int = -1
-    host_names: list[str, ...] = None
-    encoding: str = "ascii"
-    color: ColorType = ColorType.DEFAULT
-    width: int = 78
-    height: int = 24
-    mccp2: bool = False
-    mccp2_enabled: bool = False
-    mccp3: bool = False
-    mccp3_enabled: bool = False
-    gmcp: bool = False
-    msdp: bool = False
-    mssp: bool = False
-    mslp: bool = False
-    mtts: bool = False
-    naws: bool = False
-    sga: bool = False
-    linemode: bool = False
-    force_endline: bool = False
-    screen_reader: bool = False
-    mouse_tracking: bool = False
-    vt100: bool = False
-    osc_color_palette: bool = False
-    proxy: bool = False
-    mnes: bool = False
-
-    def display_client_name(self):
-        if self.client_version != "UNKNOWN":
-            return f"{self.client_name} (v {self.client_version})"
-        return self.client_name
+from dataclasses import dataclass, field
 
 
 @dataclass(slots=True)
 class ClientHello:
     userdata: dict[str, "Any"] = field(default_factory=dict)
-    capabilities: Capabilities = field(default_factory=Capabilities)
+    capabilities: MudClientCapabilities = field(default_factory=MudClientCapabilities)
 
 
 @dataclass(slots=True)
@@ -84,6 +46,20 @@ class ClientGMCP:
     data: dict
 
 
+def color_num_to_rich(color_num: int) -> ColorType:
+    match color_num:
+        case 0:
+            return ColorType.DEFAULT
+        case 1:
+            return ColorType.STANDARD
+        case 2:
+            return ColorType.EIGHT_BIT
+        case 3:
+            return ColorType.TRUECOLOR
+        case 4:
+            return ColorType.WINDOWS
+
+
 class BaseConnection:
     """
     Base implementation of the glue between the Portal and the Game. This represents a single player connection, mapping
@@ -91,7 +67,11 @@ class BaseConnection:
     """
 
     def __init__(self):
-        self.capabilities = Capabilities()
+        self.session_name = None
+        self.host_names = list()
+        self.host_port = None
+        self.host_address = None
+        self.capabilities = MudClientCapabilities()
         self.task_group = None
         self.user_input_queue = asyncio.Queue()
         self.console = Console(
@@ -102,18 +82,19 @@ class BaseConnection:
             height=self.capabilities.height,
             emoji=False,
         )
-        self.console._color_system = self.capabilities.color
+        self.console._color_system = color_num_to_rich(self.capabilities.color)
         self.parser_stack = list()
         self.client = None
         self.jwt = None
         self.payload: dict[str, "Any"] = dict()
+        self.last_active_at = datetime.now()
         self.refresh_token = None
         self.shutdown_event = asyncio.Event()
         self.shutdown_cause = None
 
     def get_headers(self) -> dict[str, str]:
         out = dict()
-        out["X-Forwarded-For"] = self.capabilities.host_address
+        out["X-Forwarded-For"] = self.host_address
         if self.jwt:
             out["Authorization"] = f"Bearer {self.jwt}"
         return out
@@ -166,36 +147,30 @@ class BaseConnection:
 
             await self.shutdown_event.wait()
             logger.info(
-                f"Connection {self.capabilities.session_name} shutting down: {self.shutdown_cause}"
+                f"Connection {self.session_name} shutting down: {self.shutdown_cause}"
             )
             raise asyncio.CancelledError()
 
     color_types = {
-        ColorType.DEFAULT: "none",
-        ColorType.STANDARD: "ansi16",
-        ColorType.EIGHT_BIT: "xterm256",
-        ColorType.TRUECOLOR: "truecolor",
-        ColorType.WINDOWS: "windows",
+        0: "none",
+        1: "ansi16",
+        2: "xterm256",
+        3: "truecolor",
+        4: "windows",
     }
-
-    async def change_capabilities(self, changed: dict[str, "Any"]):
-        for attr, value in changed.items():
-            if getattr(self.capabilities, attr) == value:
-                continue
-            setattr(self.capabilities, attr, value)
-            match attr:
-                case "color":
-                    await self.send_line(
-                        f"Capability change: {attr} -> {self.color_types[value]}"
-                    )
-                case _:
-                    await self.send_line(f"Capability change: {attr} -> {value}")
-            await self.at_capability_change(attr, value)
 
     async def at_capability_change(self, capability: str, value):
         match capability:
             case "color":
-                self.console._color_system = value
+                await self.send_line(
+                    f"Capability change: {capability} -> {self.color_types[value]}"
+                )
+            case _:
+                await self.send_line(f"Capability change: {capability} -> {value}")
+
+        match capability:
+            case "color":
+                self.console._color_system = color_num_to_rich(value)
             case "encoding":
                 if value == "utf-8":
                     self.console._emoji = True
@@ -242,6 +217,16 @@ class BaseConnection:
             return
         parser = self.parser_stack.pop()
         await parser.on_end()
+
+    async def at_receive_line(self, text: str):
+        if text != "IDLE":
+            await self.user_input_queue.put(ClientCommand(text))
+
+    async def at_receive_gmcp(self, command: str, data: dict):
+        await self.user_input_queue.put(ClientGMCP(command, data))
+
+    async def at_receive_command(self, byte: int):
+        pass
 
     async def handle_user_input(self, data):
         match data:
