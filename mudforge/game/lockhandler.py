@@ -77,18 +77,24 @@ class LockHandler:
                 )
         return PARSER_CACHE[lock]
 
-    async def access(
-        self,
-        accessor: "ActingAs",
-        access_type: str,
-        default: typing.Optional[str] = None,
-    ):
-        if accessor.admin_level >= 4:
-            return True
-        lock = await self.parse_lock(access_type, default)
+    async def check(self, accessor: "ActingAs", access_type: str) -> bool:
+        lock = await self.parse_lock(access_type)
         if lock:
             return await self.evaluate_lock(accessor, access_type, lock)
         return False
+
+    async def check_override(self, accessor: "ActingAs", access_type: str) -> bool:
+        """
+        Useful for specific case checks.
+        """
+        return False
+
+    async def access(self, accessor: "ActingAs", access_type: str):
+        if accessor.admin_level >= 4:
+            return True
+        if await self.check_override(accessor, access_type):
+            return True
+        return await self.check(accessor, access_type)
 
     async def evaluate_lock(
         self, accessor: "ActingAs", access_type: str, lock_parsed: lark.Tree
