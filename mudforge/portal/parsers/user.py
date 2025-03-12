@@ -3,7 +3,8 @@ from pydantic import ValidationError
 from .base import BaseParser
 from ..commands.base import CMD_MATCH
 from httpx import HTTPStatusError
-from mudforge.utils import validate_rich, partial_match
+from mudforge.utils import partial_match
+from mudforge.validators import user_rich_text
 from rich.markup import MarkupError
 from rich.table import Table
 

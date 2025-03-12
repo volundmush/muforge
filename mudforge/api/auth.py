@@ -1,70 +1,18 @@
-from datetime import datetime, timedelta, timezone
 from typing import Annotated, Optional
 
 import mudforge
 import jwt
-import typing
-import uuid
-import pydantic
 
-from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Body, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
-from ..db.models import UserModel, CharacterModel
-from ..db import auth as auth_db, users as users_db
-from .utils import crypt_context, oauth2_scheme, get_real_ip, get_current_user, ActiveAs
+from mudforge.models.auth import TokenResponse, UserLogin, RefreshTokenModel
+
+from mudforge.db import auth as auth_db, users as users_db
+from mudforge import crypt_context
+from .utils import oauth2_scheme, get_real_ip, get_current_user, ActiveAs
 
 router = APIRouter()
-
-
-class UserLogin(BaseModel):
-    email: pydantic.EmailStr
-    password: str
-
-
-def _create_token(sub: str, expires: datetime, refresh: bool = False):
-    data = {
-        "sub": sub,
-        "exp": expires,
-        "iat": datetime.now(tz=timezone.utc),
-    }
-    if refresh:
-        data["refresh"] = True
-    jwt_settings = mudforge.SETTINGS["JWT"]
-    return jwt.encode(data, jwt_settings["secret"], algorithm=jwt_settings["algorithm"])
-
-
-def create_token(sub: str):
-    jwt_settings = mudforge.SETTINGS["JWT"]
-    return _create_token(
-        sub,
-        datetime.now(tz=timezone.utc)
-        + timedelta(minutes=jwt_settings["token_expire_minutes"]),
-    )
-
-
-def create_refresh(sub: str):
-    jwt_settings = mudforge.SETTINGS["JWT"]
-    return _create_token(
-        sub,
-        datetime.now(tz=timezone.utc)
-        + timedelta(minutes=jwt_settings["refresh_expire_minutes"]),
-        True,
-    )
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-
-    @classmethod
-    def from_uuid(cls, id: uuid.UUID) -> "TokenResponse":
-        sub = str(id)
-        token = create_token(sub)
-        refresh = create_refresh(sub)
-        return cls(access_token=token, refresh_token=refresh, token_type="bearer")
 
 
 async def handle_login(request: Request, email: str, password: str) -> TokenResponse:
@@ -96,9 +44,6 @@ async def login(
 ):
     return await handle_login(request, data.username, data.password)
 
-
-class RefreshTokenModel(BaseModel):
-    refresh_token: str
 
 
 @router.post("/refresh", response_model=TokenResponse)

@@ -1,26 +1,19 @@
-from datetime import datetime, timedelta, timezone
 from typing import Annotated, Optional
 
-import orjson
 import typing
-import mudforge
-import jwt
 import uuid
-import pydantic
 
-from asyncpg import exceptions
 from fastapi import APIRouter, Depends, Body, HTTPException, status, Request
 
 from .utils import (
-    crypt_context,
-    oauth2_scheme,
-    get_real_ip,
     get_current_user,
     get_acting_character,
     streaming_list
 )
-from ..db.models import UserModel, CharacterModel, ActiveAs
-from ..db import characters as characters_db
+
+from mudforge.models.users import UserModel
+from mudforge.models.characters import CharacterModel, ActiveAs, CharacterCreate
+from mudforge.db import characters as characters_db
 
 router = APIRouter()
 
@@ -45,10 +38,6 @@ async def get_character(
     if character.user_id != user.id and user.admin_level == 0:
         raise HTTPException(status_code=403, detail="Character does not belong to you.")
     return character
-
-
-class CharacterCreate(pydantic.BaseModel):
-    name: str
 
 
 @router.post("/", response_model=CharacterModel)

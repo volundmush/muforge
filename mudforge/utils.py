@@ -15,15 +15,16 @@ import argparse
 import signal
 import asyncio
 from contextlib import asynccontextmanager
+from passlib.context import CryptContext
 
 from datetime import datetime, timezone
 from inspect import getmembers, getmodule, getmro, ismodule, trace
 
-from rich.text import Text
-from rich.markup import render, MarkupError
-
 from loguru import logger
 
+from mudforge import validators
+
+crypt_context = CryptContext(schemes=["argon2"])
 
 def setup_logging(name: str):
 
@@ -590,38 +591,6 @@ def class_from_module(path, defaultpaths=None, fallback=None):
 
 # alias
 object_from_module = class_from_module
-
-
-def validate_rich(text: str) -> str:
-    """
-    Args:
-        text (str): The text to validate.
-
-    Returns:
-        text (str): The validated text with literal "\n" and "\t" replaced with
-                    actual newlines and indents, and escaped slashes converted appropriately.
-
-    Raises:
-        MarkupError: If the text is invalid.
-    """
-    # First, convert literal escape sequences to their actual characters.
-    # This approach leverages Python's 'unicode_escape' decoding.
-    try:
-        # This will turn a string like "Hello\\nWorld\\tTest\\\\Done" into:
-        # "Hello\nWorld\tTest\Done"
-        processed = text.encode("utf-8").decode("unicode_escape")
-    except Exception as e:
-        raise MarkupError(f"Error decoding escape sequences: {e}")
-
-    # Now attempt to render the markup. This will raise a MarkupError
-    # if there are syntax problems in the markup.
-    try:
-        # We don’t need the output; we’re just verifying that Rich can parse it.
-        _ = Text.from_markup(processed)
-    except Exception as e:
-        raise MarkupError(e)
-
-    return processed
 
 
 class LogTime:

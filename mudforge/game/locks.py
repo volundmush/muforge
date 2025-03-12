@@ -1,5 +1,6 @@
 import typing
 import lark
+import pydantic
 import mudforge
 from dataclasses import dataclass
 from lark.exceptions import LarkError
@@ -27,18 +28,7 @@ class LockArguments:
     args: typing.List[str | int]
 
 
-class LockHandler:
-    """
-    This is the base lockhandler used for generic lock checks. It should be specialized for
-    different types of lock-holders or users if needed.
-
-    The recommended use is to have a "model" representing an entity that can have locks,
-    and it must have a self.lock_data that works like a dict[str, str].
-
-    That entity will then be the LockArguments.object that's passed into a lockfunc.
-    """
-
-    def _validate_lock_funcs(self, lock: lark.Tree):
+def _validate_lock_funcs(self, lock: lark.Tree):
         """
         Given a lark tree, validate all of the lock_funcs in the tree.
         If any don't exist, raise an HTTP_400_BAD_REQUEST.
@@ -52,20 +42,60 @@ class LockHandler:
                         detail=f"Unknown lock function: {func_name}",
                     )
 
-    async def set_lock(self, access_type: str, lock: str):
+
+def validate_lock(access_type: str, lock: str):
+    if lock in PARSER_CACHE:
+        return PARSER_CACHE[lock]
+    try:
+        parsed = mudforge.LOCKPARSER.parse(lock)
+        _validate_lock_funcs(parsed)
+        PARSER_CACHE[lock] = parsed
+        return parsed
+    except LarkError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid lock syntax for access_type {access_type}: {e}",
+        )
+    
+
+
+def validate_all_locks(valid_locks: dict[str, str]) -> dict[str, str]:
+    out = dict()
+    for access_type, lock in valid_locks.items():
+        access = access_type.strip().lower()
+        if not access:
+            raise ValueError("Access type cannot be empty or whitespace.")
+        if not lock:
+            raise ValueError(f"Lock for access_type {access} cannot be empty.")
+        if " " in access:
+            raise ValueError(f"Access type {access} cannot contain spaces.")
         try:
-            parsed = mudforge.LOCKPARSER.parse(lock)
-            self._validate_lock_funcs(parsed)
-            PARSER_CACHE[lock] = parsed
-        except LarkError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid lock syntax: {e}",
-            )
-        self.lock_data[access_type] = lock
+            validate_lock(access, lock)
+        except HTTPException as e:
+            raise ValueError(f"Invalid lock for access_type {access}: {e}")
+        out[access] = lock
+    return out
+
+
+def optional_validate_locks(lock_data: dict[str, str] | None):
+    if lock_data is None:
+        return
+    return validate_all_locks(lock_data)
+
+class OptionalLocks(pydantic.BaseModel):
+    locks: typing.Annotated[typing.Optional[dict[str, str]], pydantic.BeforeValidator(optional_validate_locks)] = None
+
+class HasLocks(pydantic.BaseModel):
+    """
+    This is the base lockhandler used for generic lock checks. It should be specialized for
+    different types of lock-holders or users if needed.
+
+    That entity will then be the LockArguments.object that's passed into a lockfunc.
+    """
+    locks: typing.Annotated[dict[str, str], pydantic.AfterValidator(validate_all_locks)]
 
     async def parse_lock(self, access_type: str, default: typing.Optional[str] = None):
-        lock = self.lock_data.get(access_type, default)
+        lock = self.locks.get(access_type, default)
         if not lock:
             return None
         if lock not in PARSER_CACHE:

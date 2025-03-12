@@ -9,8 +9,10 @@ from .utils import (
     get_current_user,
     streaming_list,
 )
-from ..db.models import UserModel, CharacterModel, ActiveAs
-from ..db import characters as characters_db, users as users_db
+
+from mudforge.models.users import UserModel
+from mudforge.models.characters import CharacterModel, ActiveAs
+from mudforge.db import characters as characters_db, users as users_db
 
 router = APIRouter()
 

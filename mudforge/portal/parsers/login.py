@@ -3,8 +3,7 @@ from pydantic import ValidationError
 from .base import BaseParser
 from ..commands.base import CMD_MATCH
 from httpx import HTTPStatusError
-from mudforge.utils import validate_rich
-from rich.markup import MarkupError
+from mudforge.validators import user_rich_text
 from rich.table import Table
 
 from mudforge.game.api.auth import (
@@ -95,7 +94,7 @@ class LoginParser(BaseParser):
 
     async def handle_rich(self, args: str):
         await self.send_line(f"Provided to Rich: {args}")
-        processed = validate_rich(args)
+        processed = user_rich_text(args)
         await self.send_rich(processed)
 
     async def handle_command(self, event: str):

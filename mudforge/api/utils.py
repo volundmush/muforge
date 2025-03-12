@@ -12,11 +12,13 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi import Request, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
-from mudforge.game.utils import crypt_context
+from mudforge.utils import crypt_context
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-from ..db.models import UserModel, CharacterModel, ActiveAs
+from mudforge.models.users import UserModel
+from mudforge.models.characters import CharacterModel, ActiveAs
+
 from ..db import characters as characters_db
 
 async def json_array_generator(data: typing.AsyncGenerator[pydantic.BaseModel, None]) -> typing.AsyncGenerator[str, None]:

@@ -109,7 +109,7 @@ application = "mudforge.game.application.Application"
 [game.lockfuncs]
 # The key is only used for overrides or disables. It loads all functions defined
 # in the module which do not begin with an underscore.
-base = "mudforge.game.lockfuncs"
+#base = "mudforge.game.lockfuncs"
 
 [game.networking]
 # governs who is allowed to use X-Forwarded-For and have it respected.
@@ -122,7 +122,7 @@ port = 8000
 # every module listed here must have a global named
 # "router" to be imported.
 # The key is the mount path. like /auth or /users
-auth = "mudforge.game.api.auth"
-users = "mudforge.game.api.users"
-characters = "mudforge.game.api.characters"
-system = "mudforge.game.api.system"
+auth = "mudforge.api.auth"
+users = "mudforge.api.users"
+characters = "mudforge.api.characters"
+system = "mudforge.api.system"
