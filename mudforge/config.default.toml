@@ -122,7 +122,7 @@ port = 8000
 # every module listed here must have a global named
 # "router" to be imported.
 # The key is the mount path. like /auth or /users
-auth = "mudforge.api.auth"
-users = "mudforge.api.users"
-characters = "mudforge.api.characters"
-system = "mudforge.api.system"
+auth = "mudforge.rest.auth"
+users = "mudforge.rest.users"
+characters = "mudforge.rest.characters"
+system = "mudforge.rest.system"

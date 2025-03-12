@@ -2,15 +2,13 @@ import typing
 import lark
 import pydantic
 import mudforge
-from dataclasses import dataclass
 from lark.exceptions import LarkError
 from fastapi import HTTPException, status
 
-PARSER_CACHE = dict()
+from mudforge.models.characters import ActiveAs
 
 
-@dataclass(slots=True)
-class LockArguments:
+class LockArguments(pydantic.BaseModel):
     """
     A dataclass that's passed into lockfunc calls.
 
@@ -28,98 +26,40 @@ class LockArguments:
     args: typing.List[str | int]
 
 
-def _validate_lock_funcs(self, lock: lark.Tree):
-        """
-        Given a lark tree, validate all of the lock_funcs in the tree.
-        If any don't exist, raise an HTTP_400_BAD_REQUEST.
-        """
-        for node in lock.iter_subtrees():
-            if node.data == "function_call":
-                func_name = node.children[0].value
-                if func_name not in mudforge.LOCKFUNCS:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Unknown lock function: {func_name}",
-                    )
-
-
-def validate_lock(access_type: str, lock: str):
-    if lock in PARSER_CACHE:
-        return PARSER_CACHE[lock]
-    try:
-        parsed = mudforge.LOCKPARSER.parse(lock)
-        _validate_lock_funcs(parsed)
-        PARSER_CACHE[lock] = parsed
-        return parsed
-    except LarkError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid lock syntax for access_type {access_type}: {e}",
-        )
-    
-
-
-def validate_all_locks(valid_locks: dict[str, str]) -> dict[str, str]:
-    out = dict()
-    for access_type, lock in valid_locks.items():
-        access = access_type.strip().lower()
-        if not access:
-            raise ValueError("Access type cannot be empty or whitespace.")
-        if not lock:
-            raise ValueError(f"Lock for access_type {access} cannot be empty.")
-        if " " in access:
-            raise ValueError(f"Access type {access} cannot contain spaces.")
-        try:
-            validate_lock(access, lock)
-        except HTTPException as e:
-            raise ValueError(f"Invalid lock for access_type {access}: {e}")
-        out[access] = lock
-    return out
-
-
-def optional_validate_locks(lock_data: dict[str, str] | None):
-    if lock_data is None:
-        return
-    return validate_all_locks(lock_data)
-
-class OptionalLocks(pydantic.BaseModel):
-    locks: typing.Annotated[typing.Optional[dict[str, str]], pydantic.BeforeValidator(optional_validate_locks)] = None
-
-class HasLocks(pydantic.BaseModel):
+class HasLocks:
     """
     This is the base lockhandler used for generic lock checks. It should be specialized for
     different types of lock-holders or users if needed.
 
     That entity will then be the LockArguments.object that's passed into a lockfunc.
     """
-    locks: typing.Annotated[dict[str, str], pydantic.AfterValidator(validate_all_locks)]
 
     async def parse_lock(self, access_type: str, default: typing.Optional[str] = None):
-        lock = self.locks.get(access_type, default)
+        lock = self.model.locks.get(access_type, default)
         if not lock:
             return None
-        if lock not in PARSER_CACHE:
+        if lock not in mudforge.LOCK_CACHE:
             try:
-                PARSER_CACHE[lock] = mudforge.LOCKPARSER.parse(lock)
+                mudforge.LOCK_CACHE[lock] = mudforge.LOCKPARSER.parse(lock)
             except LarkError as e:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid lock: {e}"
                 )
-        return PARSER_CACHE[lock]
+        return mudforge.LOCK_CACHE[lock]
 
-    async def check(self, accessor: "ActingAs", access_type: str) -> bool:
+    async def check(self, accessor: ActiveAs, access_type: str) -> bool:
         lock = await self.parse_lock(access_type)
         if lock:
             return await self.evaluate_lock(accessor, access_type, lock)
         return False
 
-    async def check_override(self, accessor: "ActingAs", access_type: str) -> bool:
+    async def check_override(self, accessor: ActiveAs, access_type: str) -> bool:
         """
         Useful for specific case checks.
         """
         return False
 
-    async def access(self, accessor: "ActingAs", access_type: str):
+    async def access(self, accessor: ActiveAs, access_type: str):
         if accessor.admin_level >= 4:
             return True
         if await self.check_override(accessor, access_type):
@@ -127,7 +67,7 @@ class HasLocks(pydantic.BaseModel):
         return await self.check(accessor, access_type)
 
     async def evaluate_lock(
-        self, accessor: "ActingAs", access_type: str, lock_parsed: lark.Tree
+        self, accessor: ActiveAs, access_type: str, lock_parsed: lark.Tree
     ) -> bool:
         """
         Evaluate the parsed lock expression asynchronously.

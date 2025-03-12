@@ -9,8 +9,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from mudforge.models.auth import TokenResponse, UserLogin, RefreshTokenModel
 
 from mudforge.db import auth as auth_db, users as users_db
-from mudforge import crypt_context
-from .utils import oauth2_scheme, get_real_ip, get_current_user, ActiveAs
+from mudforge.utils import crypt_context
+from .utils import oauth2_scheme, get_real_ip, get_current_user
 
 router = APIRouter()
 
@@ -43,7 +43,6 @@ async def login(
     request: Request, data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ):
     return await handle_login(request, data.username, data.password)
-
 
 
 @router.post("/refresh", response_model=TokenResponse)

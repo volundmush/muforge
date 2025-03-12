@@ -10,6 +10,7 @@ CLASSES = dict()
 SSL_CONTEXT = None
 LOCKPARSER = None
 LOCKFUNCS = dict()
+LOCK_CACHE = dict()
 PGPOOL: asyncpg.Pool = None
 LISTENERS = dict()
 LISTENERS_TABLE = defaultdict(list)

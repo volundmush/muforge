@@ -5,7 +5,8 @@ from asyncpg import Connection
 from fastapi import HTTPException, status
 
 from .base import transaction, from_pool, stream
-from .models import UserModel, CharacterModel
+from mudforge.models.users import UserModel
+from mudforge.models.characters import CharacterModel
 
 
 @from_pool
