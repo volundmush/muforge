@@ -1,4 +1,6 @@
 import pydantic
+from pydantic import Field
+import datetime
 
 
 class EventBase(pydantic.BaseModel):
@@ -7,4 +9,4 @@ class EventBase(pydantic.BaseModel):
     """
 
     async def handle_event(self, conn: "BaseConnection"):
-        pass
+        happened_at: datetime.datetime = Field(default_factory=datetime.datetime.now)

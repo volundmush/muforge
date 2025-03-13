@@ -10,7 +10,6 @@ class CharacterCreated(EventBase):
     user_name: str
     character_id: uuid.UUID
     character_name: str
-    happened_at: datetime.datetime = datetime.datetime.now()
 
     async def handle_event(self, conn: "BaseConnection"):
         await conn.send_text(
