@@ -106,6 +106,9 @@ class Command:
     async def api_call(self, *args, **kwargs):
         return await self.parser.api_call(*args, **kwargs)
 
+    async def api_character_call(self, *args, **kwargs):
+        return await self.parser.api_character_call(*args, **kwargs)
+
     def make_table(self, *args, **kwargs):
         return self.parser.make_table(*args, **kwargs)
 

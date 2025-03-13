@@ -60,7 +60,7 @@ class HasLocks:
         return False
 
     async def access(self, accessor: ActiveAs, access_type: str):
-        if accessor.admin_level >= 4:
+        if accessor.user.admin_level >= 4:
             return True
         if await self.check_override(accessor, access_type):
             return True

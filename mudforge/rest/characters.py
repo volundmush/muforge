@@ -23,7 +23,7 @@ async def get_characters(user: Annotated[UserModel, Depends(get_current_user)]):
             status_code=403, detail="You do not have permission to view all characters."
         )
 
-    stream = await characters_db.list_characters()
+    stream = characters_db.list_characters()
 
     return streaming_list(stream)
 

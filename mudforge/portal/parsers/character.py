@@ -113,8 +113,14 @@ class CharacterParser(BaseParser):
         except ValueError as error:
             await self.send_line(f"{error}")
         except Exception as error:
-            if self.active.admin_level >= 1:
+            if self.active.user.admin_level >= 1:
                 await self.send_line(f"An error occurred: {error}")
             else:
                 await self.send_line(f"An unknown error occurred. Contact staff.")
             logger.exception(error)
+
+    async def api_character_call(self, *args, **kwargs):
+        if "query" not in kwargs:
+            kwargs["query"] = dict()
+        kwargs["query"]["character_id"] = self.active.character.id
+        return await self.connection.api_call(*args, **kwargs)

@@ -7,4 +7,4 @@ class SystemPing(EventBase):
     timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now)
 
     async def handle_event(self, conn: "BaseConnection"):
-        await conn.send_line(f"System ping: {self.timestamp}")
+        pass

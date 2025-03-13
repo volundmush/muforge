@@ -270,6 +270,7 @@ class BaseConnection:
             http2=True,
             limits=Limits(max_connections=10, max_keepalive_connections=10),
             verify=False,
+            follow_redirects=True,
         )
 
     async def run_link(self):
