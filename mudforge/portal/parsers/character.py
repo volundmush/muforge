@@ -1,7 +1,11 @@
 import typing
 import mudforge
-from mudforge.game.db.models import ActiveAs
+import asyncio
+import orjson
+
+from mudforge.models.characters import ActiveAs
 from loguru import logger
+from fastapi import HTTPException, status
 
 from rich.markup import escape, MarkupError
 
@@ -14,11 +18,48 @@ class CharacterParser(BaseParser):
     def __init__(self, active: ActiveAs):
         super().__init__()
         self.active = active
+        self.stream_task = None
 
     async def on_start(self):
         await self.send_line(
             f"You have entered the game as {self.active.character.name}."
         )
+        self.stream_task = self.connection.task_group.create_task(self.stream_updates())
+
+    async def on_end(self):
+        if self.stream_task:
+            if not self.stream_task.cancelled():
+                self.stream_task.cancel()
+            self.stream_task = None
+
+    async def handle_event(self, event_name: str, event_data: dict):
+
+        if event_class := mudforge.EVENTS.get(event_name, None):
+            event = event_class(**event_data)
+            await event.handle_event(self)
+        else:
+            logger.error(f"Unknown event: {event_name}")
+
+    async def stream_updates(self):
+        while True:
+            try:
+                async for event_name, event_data in self.connection.api_stream(
+                    "GET", f"/characters/{self.active.character.id}/events"
+                ):
+                    await self.handle_event(event_name, event_data)
+            except asyncio.CancelledError:
+                return
+            except HTTPException as e:
+                if e.status_code == status.HTTP_401_UNAUTHORIZED:
+                    await self.send_line("You have been disconnected.")
+                    return
+                logger.error(e)
+                await self.send_line("An error occurred. Please contact staff.")
+                return
+            except Exception as e:
+                logger.error(e)
+                await self.send_line("An error occurred. Please contact staff.")
+                continue
 
     def available_commands(self) -> dict[0, list["Command"]]:
         out = dict()
@@ -42,9 +83,7 @@ class CharacterParser(BaseParser):
 
     async def refresh_active(self):
         json_data = await self.api_call(
-            "GET",
-            "/characters/active/me",
-            query={"character_id": self.active.character.id},
+            "GET", f"/characters/{self.active.character.id}/active"
         )
         self.active = ActiveAs(**json_data)
 

@@ -4,11 +4,12 @@ from .base import BaseParser
 from ..commands.base import CMD_MATCH
 from httpx import HTTPStatusError
 from mudforge.utils import partial_match
-from mudforge.validators import user_rich_text
+from mudforge.models.validators import user_rich_text
 from rich.markup import MarkupError
 from rich.table import Table
 
-from mudforge.game.db.models import ActiveAs, CharacterModel, UserModel
+from mudforge.models.users import UserModel
+from mudforge.models.characters import ActiveAs, CharacterModel
 
 
 class UserParser(BaseParser):
@@ -48,6 +49,8 @@ class UserParser(BaseParser):
             await self.send_line("You must supply a name for your character.")
             return
         user_id = self.connection.payload.get("sub")
+        user_data = await self.api_call("GET", f"/users/{user_id}")
+        user = UserModel(**user_data)
         character_data = await self.api_call("GET", f"/users/{user_id}/characters")
         characters = [CharacterModel(**c) for c in character_data]
 
@@ -55,11 +58,7 @@ class UserParser(BaseParser):
             await self.send_line("Character not found.")
             return
 
-        active_data = await self.api_call(
-            "PATCH", f"/characters/active/{character.id}", json={}
-        )
-
-        active = ActiveAs(**active_data)
+        active = ActiveAs(user=user, character=character)
 
         from .character import CharacterParser
 

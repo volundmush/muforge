@@ -3,15 +3,9 @@ from pydantic import ValidationError
 from .base import BaseParser
 from ..commands.base import CMD_MATCH
 from httpx import HTTPStatusError
-from mudforge.validators import user_rich_text
-from rich.table import Table
+from mudforge.models.validators import user_rich_text
 
-from mudforge.game.api.auth import (
-    UserLogin,
-    TokenResponse,
-    CharacterLogin,
-    CharacterTokenResponse,
-)
+from mudforge.models.auth import UserLogin, TokenResponse
 
 
 class LoginParser(BaseParser):
@@ -56,7 +50,11 @@ class LoginParser(BaseParser):
             return
         # this uses the /auth/register endpoint... which should give us a TokenResponse.
 
-        data = {"username": u.email, "password": u.password, "grant_type": "password"}
+        data = {
+            "username": u.email,
+            "password": u.password.get_secret_value(),
+            "grant_type": "password",
+        }
         try:
             json_data = await self.api_call("POST", "/auth/login", data=data)
         except HTTPStatusError as e:

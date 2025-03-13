@@ -50,5 +50,7 @@ async def get_user_characters(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions."
         )
 
-    characters = characters_db.list_characters_user(user_id)
+    target_user = await users_db.get_user(user_id)
+
+    characters = characters_db.list_characters_user(target_user)
     return streaming_list(characters)

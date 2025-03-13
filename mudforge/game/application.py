@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from hypercorn import Config
 from hypercorn.asyncio import serve
 from mudforge import Application as OldApplication
-from mudforge.utils import callables_from_module, class_from_module
+from mudforge.utils import callables_from_module, class_from_module, EventHub
 
 
 def decode_json(data: bytes):
@@ -74,6 +74,7 @@ class Application(OldApplication):
 
     async def setup(self):
         await super().setup()
+        mudforge.EVENT_HUB = EventHub()
         await self.setup_lark()
         await self.setup_asyncpg()
         await self.setup_fastapi()
@@ -117,6 +118,17 @@ class Application(OldApplication):
                 except asyncio.CancelledError:
                     break
 
+    async def system_pinger(self):
+        from mudforge.events.system import SystemPing
+
+        try:
+            while True:
+                await mudforge.EVENT_HUB.broadcast(SystemPing())
+                await asyncio.sleep(15)
+        except asyncio.CancelledError:
+            return
+
     async def start(self):
         self.task_group.create_task(serve(self.fastapi_instance, self.fastapi_config))
         self.task_group.create_task(self.postgre_listener())
+        self.task_group.create_task(self.system_pinger())

@@ -28,5 +28,8 @@ class BaseParser:
     async def api_call(self, *args, **kwargs):
         return await self.connection.api_call(*args, **kwargs)
 
+    async def api_stream(self, *args, **kwargs):
+        return await self.connection.api_stream(*args, **kwargs)
+
     def make_table(self, *args, **kwargs):
         return self.connection.make_table(*args, **kwargs)

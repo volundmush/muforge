@@ -11,7 +11,7 @@ from .utils import (
     get_current_user,
     get_acting_character,
 )
-from mudforge.utils import subscription, queue_iterator
+from mudforge.utils import subscription
 
 from mudforge.models.users import UserModel
 from mudforge.models.characters import CharacterModel, ActiveAs
@@ -27,6 +27,7 @@ async def stream_updates(
     """
     Streams updates to the client.
     """
+
 
 class RichTextModel(pydantic.BaseModel):
     text: str

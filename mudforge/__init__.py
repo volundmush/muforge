@@ -1,7 +1,13 @@
 import asyncio
 import asyncpg
+import typing
 from loguru import logger
-from mudforge.utils import class_from_module, Broadcaster
+from mudforge.utils import (
+    class_from_module,
+    callables_from_module,
+    Broadcaster,
+    EventHub,
+)
 from collections import defaultdict
 
 SETTINGS = dict()
@@ -15,6 +21,8 @@ PGPOOL: asyncpg.Pool = None
 LISTENERS = dict()
 LISTENERS_TABLE = defaultdict(list)
 BROADCASTERS: dict[str, Broadcaster] = defaultdict(Broadcaster)
+EVENT_HUB: EventHub = None
+EVENTS: dict[str, typing.Type] = dict()
 
 COMMANDS: dict[str, "Command"] = dict()
 
@@ -49,7 +57,14 @@ class Application:
         self.shutdown_event = asyncio.Event()
         self.task_group = None
 
+    async def setup_events(self):
+        global EVENTS
+        for k, v in SETTINGS.get("EVENTS", dict()).items():
+            for name, cls in callables_from_module(v).items():
+                EVENTS[name] = cls
+
     async def setup(self):
+        await self.setup_events()
         await self.setup_services()
 
     async def setup_services(self):

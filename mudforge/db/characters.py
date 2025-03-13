@@ -6,8 +6,9 @@ from asyncpg.exceptions import UniqueViolationError
 from fastapi import HTTPException, status
 from .base import transaction, from_pool, stream
 
+import mudforge
 from mudforge.models.users import UserModel
-from mudforge.models.characters import CharacterModel
+from mudforge.models.characters import CharacterModel, ActiveAs
 
 
 @from_pool
@@ -65,3 +66,21 @@ async def create_character(
             status_code=status.HTTP_409_CONFLICT, detail="Character name already in use"
         )
     return CharacterModel(**row)
+
+
+@transaction
+async def list_online(conn: Connection) -> list[ActiveAs]:
+    active_ids = mudforge.EVENT_HUB.online()
+    query = "SELECT * FROM characters WHERE id = ANY($1)"
+    character_rows = await conn.fetch(query, active_ids)
+    characters = [CharacterModel(**row) for row in character_rows]
+    user_ids = {c.user_id for c in characters}
+    query = "SELECT * FROM users WHERE id = ANY($1)"
+    user_rows = await conn.fetch(query, user_ids)
+
+    user_dict = {u["id"]: UserModel(**u) for u in user_rows}
+
+    return [
+        ActiveAs(character=character, user=user_dict[character.user_id])
+        for character in characters
+    ]

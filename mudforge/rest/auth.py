@@ -27,7 +27,7 @@ async def handle_login(request: Request, email: str, password: str) -> TokenResp
 async def register(request: Request, data: Annotated[UserLogin, Body()]):
 
     try:
-        hashed = crypt_context.hash(data.password)
+        hashed = crypt_context.hash(data.password.get_secret_value())
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Error hashing password."

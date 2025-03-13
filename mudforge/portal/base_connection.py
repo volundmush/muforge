@@ -4,19 +4,22 @@ import jwt
 import typing
 import time
 from datetime import datetime
-from httpx import AsyncClient, HTTPStatusError
+from httpx import AsyncClient, HTTPStatusError, Limits
 from loguru import logger
 from rich.console import Console
 from rich.markup import MarkupError, escape
 from rich.table import Table
 from rich.box import ASCII2
-
+from httpx_sse import aconnect_sse
+import re
 from rich.color import ColorType
-from mudforge.game.db.models import ActiveAs
-from mudforge.game.api.auth import TokenResponse, CharacterTokenResponse
+from mudforge.models.characters import ActiveAs
+from mudforge.models.auth import TokenResponse
 from aiomudtelnet import MudClientCapabilities
 
 from dataclasses import dataclass, field
+
+_re_event = re.compile(r"event: (.+)\ndata: (.+)\n\n", re.MULTILINE)
 
 
 @dataclass(slots=True)
@@ -261,16 +264,19 @@ class BaseConnection:
         if not self.capabilities.mssp:
             return
 
+    def create_client(self):
+        return AsyncClient(
+            base_url=mudforge.SETTINGS["PORTAL"]["networking"]["game_url"],
+            http2=True,
+            limits=Limits(max_connections=10, max_keepalive_connections=10),
+            verify=False,
+        )
+
     async def run_link(self):
         from .parsers.login import LoginParser
 
-        async with AsyncClient(
-            base_url=mudforge.SETTINGS["PORTAL"]["networking"]["game_url"],
-            http2=True,
-            verify=False,
-        ) as client:
+        async with self.create_client() as client:
             self.client = client
-
             await self.push_parser(LoginParser())
             await self.distribute_mssp()
 
@@ -389,7 +395,7 @@ class BaseConnection:
         json: dict = None,
         data: dict = None,
         headers: dict[str, str] = None,
-    ) -> typing.AsyncIterator[str]:
+    ) -> typing.AsyncGenerator[tuple[str, dict], None]:
         """
         Opens a streaming request to the given endpoint and yields chunks of text.
         For Server-Sent Events (SSE), you'll typically want to parse these chunks
@@ -399,22 +405,20 @@ class BaseConnection:
         if headers:
             use_headers.update(headers)
         try:
-            async with self.client.stream(
-                method, path, params=query, json=json, data=data, headers=use_headers
-            ) as response:
-                # Raise an exception for non-2xx status codes.
-                response.raise_for_status()
-
-                # .aiter_text() is an async generator that yields the response
-                # body as decoded text chunks. Each chunk may contain partial lines
-                # or multiple lines—so SSE parsing usually requires a buffer.
-                data = ""
-                async for chunk in response.aiter_text():
-                    data += chunk
-                    lines = data.split("\n")
-                    for line in lines[:-1]:
-                        yield line
-                    data = lines[-1]
+            async with self.create_client() as client:
+                async with aconnect_sse(
+                    client,
+                    method,
+                    path,
+                    params=query,
+                    json=json,
+                    data=data,
+                    headers=use_headers,
+                    timeout=None,
+                ) as event_source:
+                    # Raise an exception for non-2xx status codes.
+                    async for event in event_source.aiter_sse():
+                        yield event.event, event.json()
         except HTTPStatusError as exc:
             # Log or handle errors as needed
             logger.error(

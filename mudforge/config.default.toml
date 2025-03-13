@@ -95,6 +95,10 @@ telnets = "mudforge.portal.telnet.TLSTelnetService"
 system = "mudforge.portal.commands.system"
 help = "mudforge.portal.commands.help"
 
+[events]
+system = "mudforge.events.system"
+characters = "mudforge.events.characters"
+
 [game]
 
 [game.classes]
