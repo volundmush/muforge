@@ -2,7 +2,6 @@ orjson
 rich
 dynaconf
 pydantic[email]
-numpy
 loguru
 aiodns
 fastapi[standard]

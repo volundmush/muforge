@@ -406,20 +406,19 @@ class BaseConnection:
         if headers:
             use_headers.update(headers)
         try:
-            async with self.create_client() as client:
-                async with aconnect_sse(
-                    client,
-                    method,
-                    path,
-                    params=query,
-                    json=json,
-                    data=data,
-                    headers=use_headers,
-                    timeout=None,
-                ) as event_source:
-                    # Raise an exception for non-2xx status codes.
-                    async for event in event_source.aiter_sse():
-                        yield event.event, event.json()
+            async with aconnect_sse(
+                self.client,
+                method,
+                path,
+                params=query,
+                json=json,
+                data=data,
+                headers=use_headers,
+                timeout=None,
+            ) as event_source:
+                # Raise an exception for non-2xx status codes.
+                async for event in event_source.aiter_sse():
+                    yield event.event, event.json()
         except HTTPStatusError as exc:
             # Log or handle errors as needed
             logger.error(
