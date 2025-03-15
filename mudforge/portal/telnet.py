@@ -10,6 +10,7 @@ from mudforge import Service
 
 from aiomudtelnet import MudTelnetProtocol
 from aiomudtelnet.options import ALL_OPTIONS
+from aiomudtelnet.parser import TelnetCode
 
 from .base_connection import BaseConnection, ClientCommand
 
@@ -87,6 +88,8 @@ class TelnetConnection(BaseConnection):
     async def _tn_run_negotiation(self):
         try:
             await self.telnet.start()
+            if self.capabilities.telnet:
+                self.task_group.create_task(self.run_keepalive())
             await self.run_link()
         except Exception as err:
             logger.error(traceback.format_exc())
@@ -102,6 +105,13 @@ class TelnetConnection(BaseConnection):
 
     async def send_mssp(self, data: dict[str, str]):
         await self.telnet.send_mssp(data)
+
+    async def run_keepalive(self):
+        try:
+            await self.telnet.send_command(TelnetCode.NOP)
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            return
 
 
 class TelnetService(Service):

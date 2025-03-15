@@ -78,6 +78,8 @@ class CharacterParser(BaseParser):
 
     def match_command(self, cmd: str) -> typing.Optional["Command"]:
         for command in self.iter_commands():
+            if command.unusable:
+                continue
             if command.check_match(self.active, cmd):
                 return command
 

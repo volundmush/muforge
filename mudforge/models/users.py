@@ -12,4 +12,3 @@ class UserModel(SoftDeleteMixin):
     email_confirmed_at: Optional[datetime]
     display_name: optional_name_line
     admin_level: int
-

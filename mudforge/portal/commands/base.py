@@ -8,7 +8,7 @@ CMD_MATCH = re.compile(
 
 class Command:
     """
-    Base class for commands/actions taken by users.
+    Help not implemented for this command. Contact staff!
     """
 
     name = "!NOTSET!"
@@ -16,9 +16,21 @@ class Command:
     priority = 0
     aliases = dict()
     min_level = 0
+    # Set this to true if you want the command to exist but never reach the parser.
+    # this could be helpful for creating help files or meta-topics.
+    unusable = False
 
     class Error(Exception):
         pass
+
+    @classmethod
+    async def display_help(cls, parser: "Parser"):
+        """
+        Display the help for the command.
+
+        By default this just sends the docstring of the class.
+        """
+        await parser.send_line(cls.__doc__)
 
     @classmethod
     def check_match(cls, enactor: "ActingAs", command: str) -> typing.Optional[str]:
