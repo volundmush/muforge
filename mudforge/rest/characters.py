@@ -57,8 +57,8 @@ async def stream_character_events(
 
     async def event_generator():
         try:
-            while True:
-                item = await queue.get()  # blocks until a new event
+            # blocks until a new event
+            while item := await queue.get():
                 yield f"event: {item.__class__.__name__}\ndata: {item.model_dump_json()}\n\n"
         finally:
             mudforge.EVENT_HUB.unsubscribe(character_id, queue)

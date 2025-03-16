@@ -791,11 +791,21 @@ class EventHub:
             for q in self.subscriptions[character_id].copy():
                 await q.put(message)
 
+    def send_nowait(self, character_id: uuid.UUID, message):
+        if character_id in self.subscriptions:
+            for q in self.subscriptions[character_id].copy():
+                q.put_nowait(message)
+
     async def broadcast(self, message):
         """Send a message to all subscribers blindly."""
         for channel_list in self.subscriptions.values():
             for channel in channel_list:
                 await channel.put(message)
+
+    def broadcast_nowait(self, message):
+        for channel_list in self.subscriptions.values():
+            for channel in channel_list:
+                channel.put_nowait(message)
 
     def online(self) -> set[uuid.UUID]:
         """Return a set of all currently online characters."""
