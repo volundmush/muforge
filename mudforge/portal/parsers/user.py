@@ -1,12 +1,8 @@
 import mudforge
-from pydantic import ValidationError
 from .base import BaseParser
 from ..commands.base import CMD_MATCH
 from httpx import HTTPStatusError
 from mudforge.utils import partial_match
-from mudforge.models.validators import user_rich_text
-from rich.markup import MarkupError
-from rich.table import Table
 
 from mudforge.models.users import UserModel
 from mudforge.models.characters import ActiveAs, CharacterModel
@@ -59,10 +55,9 @@ class UserParser(BaseParser):
             return
 
         active = ActiveAs(user=user, character=character)
+        parser_class = mudforge.CLASSES["character_parser"]
 
-        from .character import CharacterParser
-
-        parser = CharacterParser(active)
+        parser = parser_class(active)
         await self.connection.push_parser(parser)
 
     async def handle_delete(self, args: str):

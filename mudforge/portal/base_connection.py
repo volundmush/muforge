@@ -274,11 +274,11 @@ class BaseConnection:
         )
 
     async def run_link(self):
-        from .parsers.login import LoginParser
+        parser_class = mudforge.CLASSES["login_parser"]
 
         async with self.create_client() as client:
             self.client = client
-            await self.push_parser(LoginParser())
+            await self.push_parser(parser_class())
             await self.distribute_mssp()
 
             while True:
@@ -297,9 +297,9 @@ class BaseConnection:
 
     async def handle_login(self, token: TokenResponse):
         await self.handle_token(token)
-        from .parsers.user import UserParser
+        parser_class = mudforge.CLASSES["user_parser"]
 
-        up = UserParser()
+        up = parser_class()
         await self.push_parser(up)
 
     async def run_refresher(self):
