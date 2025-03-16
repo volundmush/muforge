@@ -13,10 +13,10 @@ def main():
     temp_location = root_dir / "template"
 
     # first we'll check to see if a config file exists...
-    if not Path("config.default.toml").exists():
+    if not Path("config.user.toml").exists():
         """
         If the config file doesn't exist, we'll check sys.args to see if the user
-        is trying to create a new project folder via "mudlib init <dir>"
+        is trying to create a new project folder via "mudforge init <dir>"
         """
         if len(sys.argv) > 1 and sys.argv[1].lower().strip() == "init":
             # now we need to check if we have a dirname, and only if it doesn't
@@ -33,7 +33,7 @@ def main():
             return
         else:
             print("Error: No config file found. Are you in the right directory?")
-            print("To create a new project directory, use 'mudlib init <dir>'")
+            print("To create a new project directory, use 'mudforge init <dir>'")
             return
 
     d = get_config("")

@@ -5,9 +5,11 @@ import uuid
 
 from datetime import datetime, timedelta, timezone
 
+
 class UserLogin(pydantic.BaseModel):
     email: pydantic.EmailStr
     password: pydantic.SecretStr
+
 
 def _create_token(sub: str, expires: datetime, refresh: bool = False):
     data = {
@@ -46,11 +48,15 @@ class TokenResponse(pydantic.BaseModel):
     token_type: str = "bearer"
 
     @classmethod
-    def from_uuid(cls, id: uuid.UUID) -> "TokenResponse":
-        sub = str(id)
+    def from_str(cls, sub: str) -> "TokenResponse":
         token = create_token(sub)
         refresh = create_refresh(sub)
         return cls(access_token=token, refresh_token=refresh, token_type="bearer")
+
+    @classmethod
+    def from_uuid(cls, id: uuid.UUID) -> "TokenResponse":
+        sub = str(id)
+        return cls.from_str(sub)
 
 
 class RefreshTokenModel(pydantic.BaseModel):

@@ -19,16 +19,6 @@ from mudforge.models.characters import CharacterModel, ActiveAs
 router = APIRouter()
 
 
-@router.get("/updates")
-async def stream_updates(
-    user: Annotated[UserModel, Depends(get_current_user)],
-    request: Request,
-):
-    """
-    Streams updates to the client.
-    """
-
-
 class RichTextModel(pydantic.BaseModel):
     text: str
 

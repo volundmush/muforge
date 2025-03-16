@@ -61,6 +61,8 @@ class Application(OldApplication):
         self.fastapi_instance = FastAPI()
         routers = settings["FASTAPI"]["routers"]
         for k, v in routers.items():
+            if not v:
+                continue
             v = importlib.import_module(v)
             self.fastapi_instance.include_router(v.router, prefix=f"/{k}", tags=[k])
 
