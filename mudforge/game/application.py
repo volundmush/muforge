@@ -54,9 +54,9 @@ class Application(OldApplication):
         self.fastapi_config.bind = [bind_to]
 
         if Path(tls["certificate"]).exists():
-            self.fastapi_config.certfile = tls["certificate"]
+            self.fastapi_config.certfile = str(Path(tls["certificate"]).absolute())
         if Path(tls["key"]).exists():
-            self.fastapi_config.keyfile = tls["key"]
+            self.fastapi_config.keyfile = str(Path(tls["key"]).absolute())
 
         self.fastapi_instance = FastAPI()
         routers = settings["FASTAPI"]["routers"]
