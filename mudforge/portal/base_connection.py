@@ -132,6 +132,7 @@ class BaseConnection:
         match self.capabilities.encoding:
             case "ascii":
                 base_kwargs["box"] = ASCII2
+                base_kwargs["safe_box"] = True
             case "utf-8":
                 pass
         if self.capabilities.screen_reader:
