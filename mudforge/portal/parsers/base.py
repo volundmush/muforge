@@ -10,6 +10,9 @@ class BaseParser:
     async def on_end(self):
         pass
 
+    async def on_resume(self):
+        await self.on_start()
+
     async def handle_command(self, event: str):
         pass
 

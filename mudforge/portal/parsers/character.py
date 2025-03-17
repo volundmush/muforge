@@ -5,7 +5,7 @@ import orjson
 
 from mudforge.models.characters import ActiveAs
 from loguru import logger
-from fastapi import HTTPException, status
+from httpx import HTTPStatusError
 
 from rich.markup import escape, MarkupError
 
@@ -49,8 +49,8 @@ class CharacterParser(BaseParser):
                     await self.handle_event(event_name, event_data)
             except asyncio.CancelledError:
                 return
-            except HTTPException as e:
-                if e.status_code == status.HTTP_401_UNAUTHORIZED:
+            except HTTPStatusError as e:
+                if e.response.status_code == 401:
                     await self.send_line("You have been disconnected.")
                     return
                 logger.error(e)

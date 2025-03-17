@@ -64,7 +64,10 @@ class UserParser(BaseParser):
         pass
 
     async def handle_logout(self):
-        pass
+        self.connection.jwt = None
+        self.connection.payload = None
+        self.connection.refresh_token = None
+        await self.connection.pop_parser()
 
     async def handle_look(self):
         user_id = self.connection.payload.get("sub")

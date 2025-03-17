@@ -221,6 +221,11 @@ class BaseConnection:
             return
         parser = self.parser_stack.pop()
         await parser.on_end()
+        if self.parser_stack:
+            await self.parser_stack[-1].on_resume()
+        else:
+            self.shutdown_cause = "no_parser"
+            self.shutdown_event.set()
 
     async def at_receive_line(self, text: str):
         if text != "IDLE":
