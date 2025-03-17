@@ -47,6 +47,8 @@ class CharacterParser(BaseParser):
                     "GET", f"/characters/{self.active.character.id}/events"
                 ):
                     await self.handle_event(event_name, event_data)
+                self.stream_task.cancel()
+                await self.connection.pop_parser()
             except asyncio.CancelledError:
                 return
             except HTTPStatusError as e:

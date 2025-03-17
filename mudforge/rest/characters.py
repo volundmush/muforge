@@ -50,18 +50,21 @@ async def get_character_active_as(
 async def stream_character_events(
     user: Annotated[UserModel, Depends(get_current_user)], character_id: uuid.UUID
 ):
-    queue = mudforge.EVENT_HUB.subscribe(character_id)
-
     # We don't use it; but this verifies that user can control character.
     acting = await get_acting_character(user, character_id)
 
     async def event_generator():
+        queue = mudforge.EVENT_HUB.subscribe(character_id)
+        graceful = False
         try:
             # blocks until a new event
             while item := await queue.get():
                 yield f"event: {item.__class__.__name__}\ndata: {item.model_dump_json()}\n\n"
+            graceful = True
         finally:
             mudforge.EVENT_HUB.unsubscribe(character_id, queue)
+            if not graceful:
+                pass  # this can do something later.
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
