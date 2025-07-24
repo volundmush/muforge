@@ -75,15 +75,25 @@ async def run_program(program: str, settings: dict):
 
     pidfile = Path(f"{program}.pid")
     if pidfile.exists():
-        raise FileExistsError(
-            f"{pidfile} already exists! Is the {program} already running?"
-        )
+        with open(pidfile, "r") as f:
+            pid = f.read().strip()
+        if os.path.exists(f"/proc/{pid}"):
+            # If the pidfile exists and the process is still running, we raise an error.
+            raise FileExistsError(
+                f"{pidfile} already exists! Is the {program} already running? (PID: {pid})"
+            )
+        else:
+            # If the pidfile exists but the process is not running, we remove the pidfile.
+            logger.warning(f"Removing stale pidfile {pidfile} for {program}.")
+            pidfile.unlink(missing_ok=True)
+        
 
     await setup_program(program, settings)
 
     try:
         with open(pidfile, "w") as f:
             f.write(str(os.getpid()))
+            f.flush()
             app_class = mudforge.CLASSES["application"]
             app = app_class()
             mudforge.APP = app
