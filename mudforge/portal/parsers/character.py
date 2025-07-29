@@ -55,13 +55,13 @@ class CharacterParser(BaseParser):
                 if e.response.status_code == 401:
                     await self.send_line("You have been disconnected.")
                     return
-                logger.error(e)
+                logger.exception("HTTP error in stream_updates: %s")
                 await self.send_line("An error occurred. Please contact staff.")
                 return
             except Exception as e:
-                logger.error(e)
+                logger.exception("Unknown error occurred in stream_updates.")
                 await self.send_line("An error occurred. Please contact staff.")
-                continue
+                return
 
     def available_commands(self) -> dict[0, list["Command"]]:
         out = dict()
