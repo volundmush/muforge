@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "muforge"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "orjson",
+    "rich",
+    "dynaconf",
+    "pydantic[email]",
+    "loguru",
+    "aiodns",
+    "fastapi[standard]",
+    "aioquic",
+    "hypercorn[h3]",
+    "websockets",
+    "pyjwt",
+    "passlib",
+    "argon2-cffi",
+    "asyncpg",
+    "SQLAlchemy",
+    "httpx[http2]",
+    "httpx-sse",
+    "lark",
+    "aiomudtelnet @ git+https://github.com/volundmush/aiomudtelnet@main"
+]
+# This creates the `muforge` command on install
+scripts = { muforge = "muforge.launcher:main" }

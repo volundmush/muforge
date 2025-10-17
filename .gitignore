@@ -47,14 +47,13 @@ nosetests.xml
 .venv
 
 # Visual Studio
-.vscode
-
-bin/windows/*.bat
+# .vscode
 
 # Obviously don't git logs....
-template/logs/*.log
+logs/*.log
 # We don't want any user-settings either.
 config.user*.toml
 
 # Ignore dynaconf secret files
 .secrets.*
+*.pem
