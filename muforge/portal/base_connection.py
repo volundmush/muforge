@@ -1,4 +1,4 @@
-import mudforge
+import muforge
 import asyncio
 import jwt
 import typing
@@ -260,7 +260,7 @@ class BaseConnection:
                 pass
 
     async def gather_mssp(self) -> dict:
-        base_mssp = mudforge.SETTINGS["MSSP"].copy()
+        base_mssp = muforge.SETTINGS["MSSP"].copy()
         live_mssp = await self.api_call("GET", "/misc/mssp")
         base_mssp.update(live_mssp)
         return base_mssp
@@ -271,7 +271,7 @@ class BaseConnection:
 
     def create_client(self):
         return AsyncClient(
-            base_url=mudforge.SETTINGS["PORTAL"]["networking"]["game_url"],
+            base_url=muforge.SETTINGS["PORTAL"]["networking"]["game_url"],
             http2=True,
             limits=Limits(max_connections=10, max_keepalive_connections=10),
             verify=False,
@@ -279,7 +279,7 @@ class BaseConnection:
         )
 
     async def run_link(self):
-        parser_class = mudforge.CLASSES["login_parser"]
+        parser_class = muforge.CLASSES["login_parser"]
 
         async with self.create_client() as client:
             self.client = client
@@ -302,7 +302,7 @@ class BaseConnection:
 
     async def handle_login(self, token: TokenResponse):
         await self.handle_token(token)
-        parser_class = mudforge.CLASSES["user_parser"]
+        parser_class = muforge.CLASSES["user_parser"]
 
         up = parser_class()
         await self.push_parser(up)

@@ -5,7 +5,7 @@ from asyncpg import Connection
 from fastapi import HTTPException, status
 
 from .base import from_pool, stream
-from muforge.shared.models import UserModel
+from muforge.shared.models.users import UserModel
 
 
 @from_pool

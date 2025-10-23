@@ -1,27 +1,27 @@
-import mudforge
+import muforge
 import importlib
 import asyncpg
 import orjson
 import asyncio
+
 from lark import Lark
 from pathlib import Path
 from fastapi import FastAPI
+
 from hypercorn import Config
 from hypercorn.asyncio import serve
-from mudforge import Application as OldApplication
+
+from socketio.async_server import AsyncServer
+from socketio.asgi import ASGIApp
+
+from muforge.shared.application import Application as OldApplication
 from muforge.shared.utils import callables_from_module, class_from_module, EventHub
-
-
-def decode_json(data: bytes):
-    decoded = orjson.loads(data)
-    return decoded
-
 
 async def init_connection(conn: asyncpg.Connection):
     await conn.set_type_codec(
         "jsonb",  # The PostgreSQL type to target.
         encoder=lambda v: orjson.dumps(v).decode("utf-8"),
-        decoder=decode_json,
+        decoder=lambda data: orjson.loads(data),
         schema="pg_catalog",
         format="text",
     )
@@ -36,12 +36,12 @@ class Application(OldApplication):
         self.fastapi_instance = None
 
     async def setup_asyncpg(self):
-        settings = mudforge.SETTINGS["POSTGRESQL"]
+        settings = muforge.SETTINGS["POSTGRESQL"]
         pool = await asyncpg.create_pool(init=init_connection, **settings)
-        mudforge.PGPOOL = pool
+        muforge.PGPOOL = pool
 
     async def setup_fastapi(self):
-        settings = mudforge.SETTINGS
+        settings = muforge.SETTINGS
         shared = settings["SHARED"]
         tls = settings["TLS"]
         networking = settings["GAME"]["networking"]
@@ -66,37 +66,36 @@ class Application(OldApplication):
             self.fastapi_instance.include_router(v.router, prefix=f"/{k}", tags=[k])
 
     async def setup_lark(self):
-        absolute_phantasm = Path(mudforge.__file__).parent
-        grammar = absolute_phantasm / "grammar.lark"
+        grammar = Path.cwd() / "grammar.lark"
         with open(grammar, "r") as f:
             data = f.read()
             parser = Lark(data)
-            mudforge.LOCKPARSER = parser
+            muforge.LOCKPARSER = parser
 
     async def setup(self):
         await super().setup()
-        mudforge.EVENT_HUB = EventHub()
+        muforge.EVENT_HUB = EventHub()
         await self.setup_lark()
         await self.setup_asyncpg()
         await self.setup_fastapi()
 
-        for k, v in mudforge.SETTINGS["GAME"].get("lockfuncs", dict()).items():
+        for k, v in muforge.SETTINGS["GAME"].get("lockfuncs", dict()).items():
             lock_funcs = callables_from_module(v)
             for name, func in lock_funcs.items():
-                mudforge.LOCKFUNCS[name] = func
+                muforge.LOCKFUNCS[name] = func
 
-        for k, v in mudforge.SETTINGS["GAME"].get("listeners", dict()).items():
+        for k, v in muforge.SETTINGS["GAME"].get("listeners", dict()).items():
             listener_class = class_from_module(v)
             listener = listener_class()
-            mudforge.LISTENERS[k] = listener
+            muforge.LISTENERS[k] = listener
             for table in listener.tables:
-                mudforge.LISTENERS_TABLE[table].append(listener)
+                muforge.LISTENERS_TABLE[table].append(listener)
 
     async def handle_postgre_notification(self, conn, pid, channel, payload):
         decoded = orjson.loads(payload)
         args = [decoded["table"], decoded["id"]]
 
-        if not (listeners := mudforge.LISTENERS_TABLE.get(decoded["table"], [])):
+        if not (listeners := muforge.LISTENERS_TABLE.get(decoded["table"], [])):
             return
 
         match decoded["operation"]:
@@ -111,7 +110,7 @@ class Application(OldApplication):
                     await listener.on_delete(*args)
 
     async def postgre_listener(self):
-        async with mudforge.PGPOOL.acquire() as conn:
+        async with muforge.PGPOOL.acquire() as conn:
             await conn.add_listener("table_changes", self.handle_postgre_notification)
             while True:
                 try:
@@ -124,7 +123,7 @@ class Application(OldApplication):
 
         try:
             while True:
-                await mudforge.EVENT_HUB.broadcast(SystemPing())
+                await muforge.EVENT_HUB.broadcast(SystemPing())
                 await asyncio.sleep(15)
         except asyncio.CancelledError:
             return

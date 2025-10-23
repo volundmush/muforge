@@ -1,5 +1,5 @@
 import pydantic
-import mudforge
+import muforge
 import jwt
 import uuid
 
@@ -19,12 +19,12 @@ def _create_token(sub: str, expires: datetime, refresh: bool = False):
     }
     if refresh:
         data["refresh"] = True
-    jwt_settings = mudforge.SETTINGS["JWT"]
+    jwt_settings = muforge.SETTINGS["JWT"]
     return jwt.encode(data, jwt_settings["secret"], algorithm=jwt_settings["algorithm"])
 
 
 def create_token(sub: str):
-    jwt_settings = mudforge.SETTINGS["JWT"]
+    jwt_settings = muforge.SETTINGS["JWT"]
     return _create_token(
         sub,
         datetime.now(tz=timezone.utc)
@@ -33,7 +33,7 @@ def create_token(sub: str):
 
 
 def create_refresh(sub: str):
-    jwt_settings = mudforge.SETTINGS["JWT"]
+    jwt_settings = muforge.SETTINGS["JWT"]
     return _create_token(
         sub,
         datetime.now(tz=timezone.utc)

@@ -23,6 +23,8 @@ from inspect import getmembers, getmodule, getmro, ismodule, trace
 
 from loguru import logger
 
+import muforge
+
 crypt_context = CryptContext(schemes=["argon2"])
 
 
@@ -49,9 +51,6 @@ def setup_logging(name: str):
 
 
 async def setup_program(program: str, settings: dict):
-    import mudforge
-
-    mudforge.SETTINGS.update(settings)
 
     if not Path("logs").exists():
         raise FileNotFoundError(
@@ -59,19 +58,21 @@ async def setup_program(program: str, settings: dict):
         )
     setup_logging(program)
 
-    cert = settings["TLS"].get("certificate", None)
-    key = settings["TLS"].get("key", None)
+    cert = settings.get("TLS", dict()).get("certificate", None)
+    key = settings.get("TLS", dict()).get("key", None)
     if cert and key and Path(cert).exists() and Path(key).exists():
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         context.load_cert_chain(cert, key)
-        mudforge.SSL_CONTEXT = context
+        muforge.SSL_CONTEXT = context
 
     for k, v in settings[program.upper()].get("classes", dict()).items():
-        mudforge.CLASSES[k] = class_from_module(v)
+        muforge.CLASSES[k] = class_from_module(v)
 
 
 async def run_program(program: str, settings: dict):
-    import mudforge
+    import muforge
+
+    muforge.SETTINGS.update(settings)
 
     pidfile = Path(f"{program}.pid")
     if pidfile.exists():
@@ -86,7 +87,6 @@ async def run_program(program: str, settings: dict):
             # If the pidfile exists but the process is not running, we remove the pidfile.
             logger.warning(f"Removing stale pidfile {pidfile} for {program}.")
             pidfile.unlink(missing_ok=True)
-        
 
     await setup_program(program, settings)
 
@@ -94,9 +94,9 @@ async def run_program(program: str, settings: dict):
         with open(pidfile, "w") as f:
             f.write(str(os.getpid()))
             f.flush()
-            app_class = mudforge.CLASSES["application"]
+            app_class = muforge.CLASSES["application"]
             app = app_class()
-            mudforge.APP = app
+            muforge.APP = app
             await app.setup()
             try:
                 await app.run()
@@ -108,18 +108,18 @@ async def run_program(program: str, settings: dict):
 
 
 def get_config(mode: str) -> dict:
-    import mudforge
+    import muforge
     from dynaconf import Dynaconf
 
-    root_path = Path(mudforge.__file__).parent
+    root_path = Path.cwd() / "config"
 
-    files = [root_path / "config.default.toml"]
+    files = [root_path / "default.toml"]
 
     # Instead of fixed names, find all framework config files matching
     # the pattern in the current working directory.
     # If you name them as config.framework-001.toml, config.framework-002.toml, etc.,
     # a lexicographical sort should work reliably.
-    plugin_files = sorted(Path.cwd().glob("config.plugin-*.toml"))
+    plugin_files = sorted(Path.cwd().glob("plugin-*.toml"))
     files.extend(plugin_files)
 
     for f in (
@@ -128,8 +128,8 @@ def get_config(mode: str) -> dict:
         "secrets",
         f"secrets-{mode}",
     ):
-        if Path(f"config.{f}.toml").exists():
-            files.append(f"config.{f}.toml")
+        if Path(f"{f}.toml").exists():
+            files.append(f"{f}.toml")
 
     d = Dynaconf(settings_files=files)
 
@@ -621,103 +621,6 @@ class LogTime:
         end_time = time.perf_counter()
         duration = end_time - self.start_time
         logger.log(self.level, f"{self.message} took {duration:.6f} seconds")
-
-
-class Launcher:
-    import mudforge
-
-    root_dir = Path(mudforge.__file__).parent
-    components = ["portal", "game"]
-
-    def __init__(self, settings: dict):
-        self.settings = settings
-        self.parser = self._get_parser()
-        self.command_subparsers = None
-        self.cmd_args = self.parser.parse_args()
-
-    def _get_parser(self):
-        parser = argparse.ArgumentParser(
-            prog="muforge",
-            description="muforge Launcher - Manage MUD projects and services.",
-        )
-        subparsers = parser.add_subparsers(dest="command", required=True)
-        self.command_subparsers = subparsers
-
-        # --- "start" command -----------------------------------------
-        start_parser = subparsers.add_parser(
-            "start", help="Start a specified component/service (e.g. portal, server)."
-        )
-        start_parser.add_argument(
-            "component",
-            help="Name of the component to start (e.g. 'portal', 'server').",
-        )
-        # Possibly add optional arguments here, like config paths, ports, etc.
-
-        # --- "status" command ----------------------------------------
-        status_parser = subparsers.add_parser(
-            "status", help="Check the status of a specified component."
-        )
-        status_parser.add_argument(
-            "component", help="Name of the component to query status for."
-        )
-
-        # --- "stop" command ------------------------------------------
-        stop_parser = subparsers.add_parser(
-            "stop", help="Stop a specified component/service."
-        )
-        stop_parser.add_argument("component", help="Name of the component to stop.")
-
-        return parser
-
-    async def run(self):
-        try:
-            if func := getattr(self, f"do_{self.cmd_args.command}"):
-                await func()
-            else:
-                print("Invalid command.")
-                self.parser.print_help()
-        except Exception as e:
-            print(f"Error: {e}")
-
-    async def is_running(self, component: str) -> bool:
-        """
-        We need to check if the specified component is running.
-        We can do this by looking at <cwd>/<component>.pid and seeing what's going on.
-        """
-        pid_file = Path(f"{component}.pid")
-        if not pid_file.exists():
-            return False
-        with open(pid_file) as f:
-            pid = int(f.read())
-        try:
-            os.kill(pid, 0)
-        except ProcessLookupError:
-            # Stale pidfile so remove it.
-            print(f"Removing stale pidfile '{pid_file}'...")
-            os.remove(pid_file)
-            return False
-        return True
-
-    def check_component(self, component: str) -> str:
-        lowered = component.lower().strip()
-        if component.lower().strip() not in self.components:
-            raise ValueError(
-                f"Error: Invalid component '{component}'. Valid choices: {', '.join(self.components)}"
-            )
-        return lowered
-
-    async def run_start(self):
-        component = self.check_component(self.cmd_args.component)
-
-    async def run_status(self):
-        component = self.check_component(self.cmd_args.component)
-        if await self.is_running(component):
-            print(f"{component.capitalize()} is running.")
-        else:
-            print(f"{component.capitalize()} is not running.")
-
-    async def run_stop(self):
-        component = self.check_component(self.cmd_args.component)
 
 
 class Broadcaster:

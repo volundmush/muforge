@@ -5,7 +5,7 @@ from .base import transaction
 
 from muforge.shared.utils import crypt_context
 
-from muforge.shared.models import UserModel
+from muforge.shared.models.users import UserModel
 
 
 @transaction

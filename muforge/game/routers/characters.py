@@ -1,6 +1,6 @@
 from typing import Annotated
 
-import mudforge
+import muforge
 import typing
 import uuid
 
@@ -54,7 +54,7 @@ async def stream_character_events(
     acting = await get_acting_character(user, character_id)
 
     async def event_generator():
-        queue = mudforge.EVENT_HUB.subscribe(character_id)
+        queue = muforge.EVENT_HUB.subscribe(character_id)
         graceful = False
         try:
             # blocks until a new event
@@ -62,7 +62,7 @@ async def stream_character_events(
                 yield f"event: {item.__class__.__name__}\ndata: {item.model_dump_json()}\n\n"
             graceful = True
         finally:
-            mudforge.EVENT_HUB.unsubscribe(character_id, queue)
+            muforge.EVENT_HUB.unsubscribe(character_id, queue)
             if not graceful:
                 pass  # this can do something later.
 

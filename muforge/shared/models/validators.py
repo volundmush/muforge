@@ -1,4 +1,4 @@
-import mudforge
+import muforge
 import lark
 from rich.markup import MarkupError
 from rich.text import Text
@@ -57,17 +57,17 @@ def _validate_lock_funcs(lock: lark.Tree):
     for node in lock.iter_subtrees():
         if node.data == "function_call":
             func_name = node.children[0].value
-            if func_name not in mudforge.LOCKFUNCS:
+            if func_name not in muforge.LOCKFUNCS:
                 raise ValueError(f"Unknown lock function: {func_name}")
 
 
 def _validate_lock(access_type: str, lock: str):
-    if lock in mudforge.LOCK_CACHE:
-        return mudforge.LOCK_CACHE[lock]
+    if lock in muforge.LOCK_CACHE:
+        return muforge.LOCK_CACHE[lock]
     try:
-        parsed = mudforge.LOCKPARSER.parse(lock)
+        parsed = muforge.LOCKPARSER.parse(lock)
         _validate_lock_funcs(parsed)
-        mudforge.LOCK_CACHE[lock] = parsed
+        muforge.LOCK_CACHE[lock] = parsed
         return parsed
     except lark.LarkError as e:
         raise ValueError(f"Invalid lock syntax for access_type {access_type}: {e}")

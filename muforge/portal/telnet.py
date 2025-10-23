@@ -4,9 +4,9 @@ from loguru import logger
 import traceback
 from datetime import datetime
 
-import mudforge
+import muforge
 from muforge.shared.utils import generate_name
-from mudforge import Service
+from muforge import Service
 
 from aiomudtelnet import MudTelnetProtocol
 from aiomudtelnet.options import ALL_OPTIONS
@@ -121,8 +121,8 @@ class TelnetService(Service):
     def __init__(self):
         self.connections = set()
 
-        self.external = mudforge.SETTINGS["SHARED"]["external"]
-        self.port = mudforge.SETTINGS["PORTAL"]["networking"][self.op_key]
+        self.external = muforge.SETTINGS["SHARED"]["external"]
+        self.port = muforge.SETTINGS["PORTAL"]["networking"][self.op_key]
         self.tls_context = None
         self.server = None
         self.shutdown_event = asyncio.Event()
@@ -156,17 +156,17 @@ class TelnetService(Service):
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
         address, port = writer.get_extra_info("peername")
-        protocol = mudforge.CLASSES["telnet_connection"](reader, writer, self)
+        protocol = muforge.CLASSES["telnet_connection"](reader, writer, self)
         protocol.session_name = generate_name(
-            self.op_key, mudforge.APP.game_sessions.keys()
+            self.op_key, muforge.APP.game_sessions.keys()
         )
         protocol.host_address = address
         protocol.host_port = port
-        if mudforge.APP.resolver:
-            reverse = await mudforge.APP.resolver.gethostbyaddr(address)
+        if muforge.APP.resolver:
+            reverse = await muforge.APP.resolver.gethostbyaddr(address)
             protocol.host_names = reverse.aliases
         self.sessions.add(protocol)
-        await mudforge.APP.handle_new_protocol(protocol)
+        await muforge.APP.handle_new_protocol(protocol)
         self.sessions.remove(protocol)
 
 
@@ -176,7 +176,7 @@ class TLSTelnetService(TelnetService):
 
     def __init__(self):
         super().__init__()
-        self.tls_context = mudforge.SSL_CONTEXT
+        self.tls_context = muforge.SSL_CONTEXT
 
     def is_valid(self):
         return self.tls_context is not None

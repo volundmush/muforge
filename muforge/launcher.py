@@ -3,13 +3,13 @@ import sys
 import shutil
 import pathlib
 import asyncio
+import muforge
 from muforge.shared.utils import class_from_module, get_config
-import mudforge
 from pathlib import Path
 
 
 def main():
-    root_dir = pathlib.Path(mudforge.__file__).parent
+    root_dir = pathlib.Path(muforge.__file__).parent
     temp_location = root_dir / "template"
 
     # first we'll check to see if a config file exists...

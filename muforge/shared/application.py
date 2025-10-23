@@ -4,6 +4,8 @@ from loguru import logger
 from .service import Service
 from .utils import callables_from_module, class_from_module
 
+import muforge
+
 class Application:
     # name will be either "portal" or "game"
     name: str = None
@@ -14,21 +16,19 @@ class Application:
         self.task_group = None
 
     async def setup_events(self):
-        global EVENTS
-        for k, v in SETTINGS.get("EVENTS", dict()).items():
+        for k, v in muforge.SETTINGS.get("EVENTS", dict()).items():
             for name, cls in callables_from_module(v).items():
-                EVENTS[name] = cls
+                muforge.EVENTS[name] = cls
 
     async def setup(self):
         await self.setup_events()
         await self.setup_services()
 
     async def setup_services(self):
-        global SERVICES
-        for k, v in SETTINGS[self.name.upper()].get("services", dict()).items():
+        for k, v in muforge.SETTINGS[self.name.upper()].get("services", dict()).items():
             cls = class_from_module(v)
             srv = cls()
-            SERVICES[k] = srv
+            muforge.SERVICES[k] = srv
             if srv.is_valid():
                 self.valid_services.append(srv)
 

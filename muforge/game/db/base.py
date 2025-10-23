@@ -1,6 +1,6 @@
 from functools import wraps
 import typing
-import mudforge  # assuming this is where PGPOOL is defined
+import muforge  # assuming this is where PGPOOL is defined
 
 
 def transaction(func):
@@ -12,7 +12,7 @@ def transaction(func):
 
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        async with mudforge.PGPOOL.acquire() as conn:
+        async with muforge.PGPOOL.acquire() as conn:
             async with conn.transaction():
                 # Pass the connection as the first parameter to the function.
                 return await func(conn, *args, **kwargs)
@@ -28,7 +28,7 @@ def stream(func):
     @wraps(func)
     def wrapper(*args, **kwargs) -> typing.AsyncIterator[typing.Any]:
         async def generator():
-            async with mudforge.PGPOOL.acquire() as conn:
+            async with muforge.PGPOOL.acquire() as conn:
                 async with conn.transaction():
                     # If `func` is an async generator, we must iterate over it:
                     async for item in func(conn, *args, **kwargs):
@@ -47,7 +47,7 @@ def from_pool(func):
 
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        async with mudforge.PGPOOL.acquire() as conn:
+        async with muforge.PGPOOL.acquire() as conn:
             return await func(conn, *args, **kwargs)
 
     return wrapper

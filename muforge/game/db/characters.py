@@ -6,8 +6,8 @@ from asyncpg.exceptions import UniqueViolationError
 from fastapi import HTTPException, status
 from .base import transaction, from_pool, stream
 
-import mudforge
-from muforge.shared.models import UserModel
+import muforge
+from muforge.shared.models.users import UserModel
 from muforge.shared.models.characters import CharacterModel, ActiveAs
 
 
@@ -70,7 +70,7 @@ async def create_character(
 
 @transaction
 async def list_online(conn: Connection) -> list[ActiveAs]:
-    active_ids = mudforge.EVENT_HUB.online()
+    active_ids = muforge.EVENT_HUB.online()
     query = "SELECT * FROM characters WHERE id = ANY($1)"
     character_rows = await conn.fetch(query, active_ids)
     characters = [CharacterModel(**row) for row in character_rows]

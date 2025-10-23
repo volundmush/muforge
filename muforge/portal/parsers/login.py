@@ -1,4 +1,4 @@
-import mudforge
+import muforge
 from pydantic import ValidationError
 from .base import BaseParser
 from ..commands.base import CMD_MATCH
@@ -15,7 +15,7 @@ class LoginParser(BaseParser):
 
     async def show_welcome(self):
         # TODO: Figure out a welcome screen solution.
-        await self.send_line(f"Welcome to {mudforge.SETTINGS['MSSP']['NAME']}!")
+        await self.send_line(f"Welcome to {muforge.SETTINGS['MSSP']['NAME']}!")
         help_table = self.make_table("Command", "Description")
         help_table.add_row("register <email>=<password>", "Register a new account.")
         help_table.add_row("login <email>=<password>", "Login to an existing account.")

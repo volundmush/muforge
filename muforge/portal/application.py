@@ -3,8 +3,8 @@ import aiodns
 import sys
 import traceback
 
-import mudforge
-from mudforge import Application as _Application
+import muforge
+from muforge.shared.application import Application as _Application
 from muforge.shared.utils import callables_from_module
 from loguru import logger
 
@@ -24,10 +24,10 @@ class Application(_Application):
     async def setup(self):
         await super().setup()
 
-        for k, v in mudforge.SETTINGS["PORTAL"]["commands"].items():
+        for k, v in muforge.SETTINGS["PORTAL"]["commands"].items():
             for name, command in callables_from_module(v).items():
-                mudforge.COMMANDS[command.name] = command
-                mudforge.COMMANDS_PRIORITY[command.priority].append(command)
+                muforge.COMMANDS[command.name] = command
+                muforge.COMMANDS_PRIORITY[command.priority].append(command)
 
     async def handle_new_protocol(self, protocol):
         protocol.core = self

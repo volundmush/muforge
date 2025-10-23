@@ -1,12 +1,13 @@
 import typing
-import mudforge
+import muforge
 import asyncio
-
-from muforge.shared.models.characters import ActiveAs
+from socketio.async_client import AsyncClient
 from loguru import logger
 from httpx import HTTPStatusError
 
 from rich.markup import escape, MarkupError
+
+from muforge.shared.models.characters import ActiveAs
 
 from .base import BaseParser
 from ..commands.base import CMD_MATCH
@@ -17,19 +18,21 @@ class CharacterParser(BaseParser):
     def __init__(self, active: ActiveAs):
         super().__init__()
         self.active = active
+        self.sio = None
+        self.shutdown_event = asyncio.Event()
+        self.client = None
         self.stream_task = None
+        self.sid = None
 
     async def on_start(self):
         await self.send_line(
             f"You have entered the game as {self.active.character.name}."
         )
-        self.stream_task = self.connection.task_group.create_task(self.stream_updates())
+        self.stream_task = self.connection.task_group.create_task(self.run_socketio())
 
     async def on_end(self):
-        if self.stream_task:
-            if not self.stream_task.cancelled():
-                self.stream_task.cancel()
-            self.stream_task = None
+        self.shutdown_event.set()
+
 
     async def handle_event(self, event_name: str, event_data: dict):
 
@@ -64,16 +67,16 @@ class CharacterParser(BaseParser):
 
     def available_commands(self) -> dict[0, list["Command"]]:
         out = dict()
-        for priority, commands in mudforge.COMMANDS_PRIORITY.items():
+        for priority, commands in muforge.COMMANDS_PRIORITY.items():
             for c in commands:
                 if c.check_access(self.active):
                     out[c.name] = c
         return out
 
     def iter_commands(self):
-        priorities = sorted(mudforge.COMMANDS_PRIORITY.keys())
+        priorities = sorted(muforge.COMMANDS_PRIORITY.keys())
         for priority in priorities:
-            for command in mudforge.COMMANDS_PRIORITY[priority]:
+            for command in muforge.COMMANDS_PRIORITY[priority]:
                 if command.check_access(self.active):
                     yield command
 

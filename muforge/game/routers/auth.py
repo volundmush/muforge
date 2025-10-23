@@ -1,6 +1,6 @@
 from typing import Annotated
 
-import mudforge
+import muforge
 import jwt
 
 from fastapi import APIRouter, Depends, Body, HTTPException, status, Request
@@ -47,7 +47,7 @@ async def login(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(ref: Annotated[RefreshTokenModel, Body()]):
-    jwt_settings = mudforge.SETTINGS["JWT"]
+    jwt_settings = muforge.SETTINGS["JWT"]
     try:
         payload = jwt.decode(
             ref.refresh_token,

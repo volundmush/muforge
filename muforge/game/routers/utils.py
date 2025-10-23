@@ -1,4 +1,4 @@
-import mudforge
+import muforge
 import jwt
 import uuid
 import pydantic
@@ -44,7 +44,7 @@ def get_real_ip(request: Request):
     trusted proxies are in muforge.SETTINGS["GAME"]["networking"]["trusted_proxy_ips"]
     """
     ip = request.client.host
-    if ip in mudforge.SETTINGS["GAME"]["networking"]["trusted_proxy_ips"]:
+    if ip in muforge.SETTINGS["GAME"]["networking"]["trusted_proxy_ips"]:
         ip = request.headers.get("X-Forwarded-For", ip).split(",")[0].strip()
     return ip
 
@@ -55,7 +55,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> Use
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    jwt_settings = mudforge.SETTINGS["JWT"]
+    jwt_settings = muforge.SETTINGS["JWT"]
     try:
         payload = jwt.decode(
             token, jwt_settings["secret"], algorithms=[jwt_settings["algorithm"]]
@@ -65,7 +65,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> Use
     except jwt.PyJWTError as e:
         raise credentials_exception
 
-    async with mudforge.PGPOOL.acquire() as conn:
+    async with muforge.PGPOOL.acquire() as conn:
         user = await conn.fetchrow("SELECT * FROM users WHERE id = $1", user_id)
 
     if user is None:

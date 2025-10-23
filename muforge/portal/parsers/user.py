@@ -1,4 +1,4 @@
-import mudforge
+import muforge
 from .base import BaseParser
 from ..commands.base import CMD_MATCH
 from httpx import HTTPStatusError
@@ -55,7 +55,7 @@ class UserParser(BaseParser):
             return
 
         active = ActiveAs(user=user, character=character)
-        parser_class = mudforge.CLASSES["character_parser"]
+        parser_class = muforge.CLASSES["character_parser"]
 
         parser = parser_class(active)
         await self.connection.push_parser(parser)

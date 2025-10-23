@@ -1,7 +1,7 @@
 import typing
 import lark
 import pydantic
-import mudforge
+import muforge
 from lark.exceptions import LarkError
 from fastapi import HTTPException, status
 
@@ -38,14 +38,14 @@ class HasLocks:
         lock = self.model.locks.get(access_type, default)
         if not lock:
             return None
-        if lock not in mudforge.LOCK_CACHE:
+        if lock not in muforge.LOCK_CACHE:
             try:
-                mudforge.LOCK_CACHE[lock] = mudforge.LOCKPARSER.parse(lock)
+                muforge.LOCK_CACHE[lock] = muforge.LOCKPARSER.parse(lock)
             except LarkError as e:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid lock: {e}"
                 )
-        return mudforge.LOCK_CACHE[lock]
+        return muforge.LOCK_CACHE[lock]
 
     async def check(self, accessor: ActiveAs, access_type: str) -> bool:
         lock = await self.parse_lock(access_type)
@@ -143,7 +143,7 @@ class HasLocks:
                         args=args,
                     )
                     # Look up the lock function.
-                    lockfunc = mudforge.LOCKFUNCS.get(func_name)
+                    lockfunc = muforge.LOCKFUNCS.get(func_name)
                     if lockfunc is None:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
