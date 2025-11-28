@@ -8,7 +8,7 @@ allow-direct-references = true
 [project]
 name = "muforge"
 version = "0.1.0"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "orjson",
     "rich",
