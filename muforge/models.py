@@ -15,6 +15,9 @@ class Player:
     attributes: Dict[str, Any] = field(default_factory=lambda: {
         "health": 100,
         "max_health": 100,
+        "credits": 0,
+        "attack": 10,
+        "armor": 0,
     })
     inventory: List[Dict[str, Any]] = field(default_factory=list)
     # NEW: store an active adventure field (dict)
@@ -23,12 +26,23 @@ class Player:
     field_loot_taken: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
+        attrs = self.attributes
         return {
             "id": self.id,
             "name": self.name,
             "current_node_id": self.current_node_id,
-            "attributes": self.attributes,
-            "inventory": self.inventory,
+            # expose key stats at top level for the frontend
+            "health": attrs.get("health", 100),
+            "max_health": attrs.get("max_health", 100),
+            "credits": attrs.get("credits", 0),
+            "attributes": attrs,
+            "inventory": [
+                {
+                    "name": item.get("name"),
+                    "qty": item.get("qty") or item.get("count") or item.get("amount") or 1,
+                }
+                for item in self.inventory
+            ],
             "has_field": self.current_field is not None,
         }
 
