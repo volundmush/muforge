@@ -267,10 +267,128 @@ def exec_command(player: Player, raw: str) -> Dict[str, Any]:
             "shops": shop_objs,
         }
 
+    # -------- item usage ----------
+    if cmd == "use":
+        if not arg:
+            raise CommandError("Use what? Try 'use Medpack'.")
+
+        raw_name = arg.strip()
+        item_name = raw_name.lower()
+
+        # find first matching item in inventory (case-insensitive)
+        item = next(
+            (
+                i
+                for i in player.inventory
+                if i.get("name", "").lower() == item_name
+            ),
+            None,
+        )
+
+        if not item:
+            raise CommandError(f"You don't have a {raw_name}.")
+
+        # how many in this stack
+        qty = (
+            item.get("qty")
+            or item.get("count")
+            or item.get("amount")
+            or 1
+        )
+
+        attrs = player.attributes
+        max_hp = attrs.get("max_health", 100)
+        cur_hp = attrs.get("health", max_hp)
+        credits = attrs.get("credits", 0)
+        attack = attrs.get("attack", 10)
+        armor = attrs.get("armor", 0)
+
+        heal_amount = 0
+        credits_gain = 0
+        attack_gain = 0
+        max_hp_gain = 0
+
+        name = item.get("name", "")
+
+        # healing items
+        if name == "Medpack":
+            heal_amount = 25 * qty
+
+        elif name == "Nano Repair Kit":
+            heal_amount = 75 * qty
+
+        elif name == "Energy Cell":
+            heal_amount = 10 * qty
+
+        elif name == "Charge Cell":
+            heal_amount = 5 * qty
+
+        # scrap → credits
+        elif name == "Credits":
+            # each unit of qty is 1 credit
+            credits_gain = qty
+
+        elif name == "Iron Scrap":
+            credits_gain = 2 * qty
+
+        elif name == "Scrap":
+            credits_gain = 3 * qty
+
+        elif name == "Scrap Alloy":
+            credits_gain = 5 * qty
+
+        # gear boosts
+        elif name == "Weapon":
+            attack_gain = 5 * qty
+
+        elif name == "Blaster":
+            attack_gain = 10 * qty
+
+        elif name == "Armor":
+            max_hp_gain = 20 * qty
+
+        else:
+            raise CommandError(f"{name} cannot be used directly.")
+
+        msg_parts = [f"You use {qty}× {name}."]
+
+        # apply healing
+        if heal_amount > 0:
+            new_hp = min(max_hp + max_hp_gain, cur_hp + heal_amount)
+            actual_heal = new_hp - cur_hp
+            attrs["health"] = new_hp
+            msg_parts.append(f"Recovered {actual_heal} HP.")
+
+        # apply max HP boosts (Armor)
+        if max_hp_gain > 0:
+            attrs["max_health"] = max_hp + max_hp_gain
+            # fully heal to new max
+            attrs["health"] = attrs["max_health"]
+            msg_parts.append(f"Max health increased by {max_hp_gain}.")
+
+        # apply credits gain
+        if credits_gain > 0:
+            attrs["credits"] = credits + credits_gain
+            msg_parts.append(f"Gained {credits_gain} credits.")
+
+        # apply attack boost
+        if attack_gain > 0:
+            attrs["attack"] = attack + attack_gain
+            msg_parts.append(f"Attack increased by {attack_gain}.")
+
+        # consume the entire stack on use
+        if item in player.inventory:
+            player.inventory.remove(item)
+
+        return {
+            "ok": True,
+            "msg": " ".join(msg_parts),
+        }
+
     if cmd == "help":
         return {
             "ok": True,
-            "msg": "Commands: look, whereami, info <id>, pathfind <id>, visit <exit>, adventure, attack <n>, loot, heal, search, pickup, inventory, interact, help",
+            "msg": "Commands: look, whereami, info <id>, pathfind <id>, visit <exit>, adventure, attack <n>, loot, heal, search, pickup, inventory, interact, use <item>, help",
         }
 
     raise CommandError(f"Unknown command '{cmd}'.")
