@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: muforge.game",
+  "type": "debugpy",
+      "request": "launch",
+      "module": "muforge.game",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Python: muforge.portal",
+  "type": "debugpy",
+      "request": "launch",
+      "module": "muforge.portal",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ]
+}

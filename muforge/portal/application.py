@@ -26,8 +26,8 @@ class Application(_Application):
 
         for k, v in muforge.SETTINGS["PORTAL"]["commands"].items():
             for name, command in callables_from_module(v).items():
-                muforge.COMMANDS[command.name] = command
-                muforge.COMMANDS_PRIORITY[command.priority].append(command)
+                muforge.PORTAL_COMMANDS[command.name] = command
+                muforge.PORTAL_COMMANDS_PRIORITY[command.priority].append(command)
 
     async def handle_new_protocol(self, protocol):
         protocol.core = self

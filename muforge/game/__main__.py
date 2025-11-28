@@ -1,12 +1,5 @@
 #!/usr/bin/env python
-import asyncio
-from muforge.shared.utils import run_program, get_config
-
-
-async def main():
-    settings = get_config("game")
-    await run_program("game", settings)
-
+from muforge.shared.boot import startup
 
 if __name__ == "__main__":
-    asyncio.run(main(), debug=True)
+    startup("game")

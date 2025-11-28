@@ -52,8 +52,7 @@ nosetests.xml
 # Obviously don't git logs....
 logs/*.log
 # We don't want any user-settings either.
-config.user*.toml
+config/user*.toml
+config/secret*.toml
 
-# Ignore dynaconf secret files
-.secrets.*
 *.pem

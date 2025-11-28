@@ -1,16 +1,16 @@
 import typing
 import muforge
 import asyncio
-from socketio.async_client import AsyncClient
 from loguru import logger
 from httpx import HTTPStatusError
 
-from rich.markup import escape, MarkupError
+from rich.markup import escape
+from rich.errors import MarkupError
 
 from muforge.shared.models.characters import ActiveAs
 
 from .base import BaseParser
-from ..commands.base import CMD_MATCH
+from muforge.shared.commands import CMD_MATCH
 
 
 class CharacterParser(BaseParser):
@@ -28,7 +28,7 @@ class CharacterParser(BaseParser):
         await self.send_line(
             f"You have entered the game as {self.active.character.name}."
         )
-        self.stream_task = self.connection.task_group.create_task(self.run_socketio())
+        self.stream_task = self.connection.task_group.create_task(self.stream_updates())
 
     async def on_end(self):
         self.shutdown_event.set()
@@ -36,18 +36,22 @@ class CharacterParser(BaseParser):
 
     async def handle_event(self, event_name: str, event_data: dict):
 
-        if event_class := mudforge.EVENTS.get(event_name, None):
+        if event_class := muforge.EVENTS.get(event_name, None):
             event = event_class(**event_data)
             await event.handle_event(self)
         else:
             logger.error(f"Unknown event: {event_name}")
 
     async def stream_updates(self):
+        disconnects: int = 0
         while True:
             try:
+                if disconnects > 0:
+                    await asyncio.sleep(2 ^ disconnects)
                 async for event_name, event_data in self.connection.api_stream(
                     "GET", f"/characters/{self.active.character.id}/events"
                 ):
+                    disconnects = 0
                     await self.handle_event(event_name, event_data)
                 self.stream_task.cancel()
                 await self.connection.pop_parser()
@@ -59,24 +63,26 @@ class CharacterParser(BaseParser):
                     return
                 logger.exception("HTTP error in stream_updates: %s")
                 await self.send_line("An error occurred. Please contact staff.")
+                disconnects += 1
                 return
             except Exception as e:
                 logger.exception("Unknown error occurred in stream_updates.")
                 await self.send_line("An error occurred. Please contact staff.")
+                disconnects += 1
                 return
 
-    def available_commands(self) -> dict[0, list["Command"]]:
+    def available_commands(self) -> dict[int, list["Command"]]:
         out = dict()
-        for priority, commands in muforge.COMMANDS_PRIORITY.items():
+        for priority, commands in muforge.PORTAL_COMMANDS_PRIORITY.items():
             for c in commands:
                 if c.check_access(self.active):
                     out[c.name] = c
         return out
 
     def iter_commands(self):
-        priorities = sorted(muforge.COMMANDS_PRIORITY.keys())
+        priorities = sorted(muforge.PORTAL_COMMANDS_PRIORITY.keys())
         for priority in priorities:
-            for command in muforge.COMMANDS_PRIORITY[priority]:
+            for command in muforge.PORTAL_COMMANDS_PRIORITY[priority]:
                 if command.check_access(self.active):
                     yield command
 
@@ -93,7 +99,7 @@ class CharacterParser(BaseParser):
         )
         self.active = ActiveAs(**json_data)
 
-    async def handle_command(self, cmd: str):
+    async def handle_command(self, event: str):
         try:
             await self.refresh_active()
         except Exception as e:
@@ -102,7 +108,7 @@ class CharacterParser(BaseParser):
             return
 
         try:
-            if not (match_data := CMD_MATCH.match(cmd)):
+            if not (match_data := CMD_MATCH.match(event)):
                 raise ValueError(f"Huh? (Type 'help' for help)")
             # regex match_data.groupdict() returns a dictionary of all the named groups
             # and their values. Missing groups are None. That's silly. We'll filter it out.

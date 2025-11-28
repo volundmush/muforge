@@ -6,7 +6,7 @@ from datetime import datetime
 
 import muforge
 from muforge.shared.utils import generate_name
-from muforge import Service
+from muforge.shared.service import Service
 
 from aiomudtelnet import MudTelnetProtocol
 from aiomudtelnet.options import ALL_OPTIONS
@@ -163,8 +163,11 @@ class TelnetService(Service):
         protocol.host_address = address
         protocol.host_port = port
         if muforge.APP.resolver:
-            reverse = await muforge.APP.resolver.gethostbyaddr(address)
-            protocol.host_names = reverse.aliases
+            try:
+                reverse = await muforge.APP.resolver.gethostbyaddr(address)
+                protocol.host_names = reverse.aliases
+            except Exception:
+                pass
         self.sessions.add(protocol)
         await muforge.APP.handle_new_protocol(protocol)
         self.sessions.remove(protocol)

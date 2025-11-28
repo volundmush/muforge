@@ -7,6 +7,8 @@ import uuid
 from fastapi import APIRouter, Depends, Body, HTTPException
 from fastapi.responses import StreamingResponse
 
+from pydantic import BaseModel
+
 from .utils import get_current_user, get_acting_character, streaming_list
 
 from muforge.shared.models.users import UserModel
@@ -68,6 +70,30 @@ async def stream_character_events(
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+
+class CommandSubmission(BaseModel):
+    command: str
+
+
+@router.post("/{character_id}/command")
+async def submit_command(
+        user: Annotated[UserModel, Depends(get_current_user)],
+        character_id: int,
+        command: Annotated[CommandSubmission, Body()],
+):
+    if character_id not in user.characters:
+        raise HTTPException(
+            status_code=403, detail="You do not have permission to use this character."
+        )
+
+    if character_id not in muforge.EVENT_HUB.online():
+        raise HTTPException(
+            status_code=403, detail="Character is not online."
+        )
+
+    #do something with the command here...
+
+    return {"status": "ok"}
 
 @router.post("/", response_model=CharacterModel)
 async def create_character(

@@ -11,9 +11,6 @@ from fastapi import FastAPI
 from hypercorn import Config
 from hypercorn.asyncio import serve
 
-from socketio.async_server import AsyncServer
-from socketio.asgi import ASGIApp
-
 from muforge.shared.application import Application as OldApplication
 from muforge.shared.utils import callables_from_module, class_from_module, EventHub
 
@@ -51,6 +48,7 @@ class Application(OldApplication):
         external = shared["external"]
         bind_to = f"{external}:{networking['port']}"
         self.fastapi_config.bind = [bind_to]
+        self.fastapi_config._quic_bind = [bind_to]
 
         if Path(tls["certificate"]).exists():
             self.fastapi_config.certfile = str(Path(tls["certificate"]).absolute())

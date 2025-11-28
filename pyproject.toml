@@ -24,7 +24,6 @@ dependencies = [
     "passlib",
     "argon2-cffi",
     "asyncpg",
-    "SQLAlchemy",
     "httpx[http2]",
     "lark",
     "aiomudtelnet @ git+https://github.com/volundmush/aiomudtelnet@main"

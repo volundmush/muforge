@@ -1,7 +1,7 @@
 import muforge
 from pydantic import ValidationError
 from .base import BaseParser
-from ..commands.base import CMD_MATCH
+from muforge.shared.commands import CMD_MATCH
 from httpx import HTTPStatusError
 from muforge.shared.models.validators import user_rich_text
 
