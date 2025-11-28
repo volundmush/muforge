@@ -74,7 +74,7 @@ class LoginParser(BaseParser):
             return
 
         try:
-            data = u.model_dump()
+            data = {"email": u.email, "password": u.password.get_secret_value()}
             json_data = await self.api_call("POST", "/auth/register", json=data)
         except HTTPStatusError as e:
             await self.send_line(f"Registration failed: {e}")

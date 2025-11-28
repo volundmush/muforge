@@ -85,6 +85,7 @@ CREATE TABLE entities (
     name VARCHAR(100) NOT NULL,
     entity_class VARCHAR(100) NOT NULL,
     entity_type VARCHAR(15) NOT NULL,
+    entity_family VARCHAR(15) NOT NULL,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     data JSONB NOT NULL DEFAULT '{}'::jsonb

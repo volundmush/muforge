@@ -1,4 +1,3 @@
-import weakref
 import uuid
 
 class BaseEntity:
@@ -23,3 +22,20 @@ class BaseEntity:
     
     def render_for_inventory_view(self, viewer: "Character") -> str:
         return self.get_display_name(viewer)
+    
+    def _save_base(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "entity_type": self.entity_type,
+            "entity_family": self.entity_family,
+            "entity_class": f"{self.__class__.__module__}.{self.__class__.__name__}",
+        }
+    
+    def save_data(self) -> dict:
+        return dict()
+
+    def export_save(self) -> dict:
+        base = self._save_base()
+        base["data"] = self.save_data()
+        return base
