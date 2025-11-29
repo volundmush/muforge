@@ -3,10 +3,10 @@ import weakref
 class HasLocation:
 
     def __init__(self) -> None:
-        self.location: "None | weakref.ReferenceType[BaseLocation | Object | Structure | Character]" = None
+        self.location: "None | weakref.ReferenceType[BaseLocation | Object | Structure | Character | NodeSchema | RoomSchema]" = None
         self.location_data: dict = dict()
 
-    def get_location(self) -> "None | BaseLocation | Object | Structure | Character":
+    def get_location(self) -> "None | BaseLocation | Object | Structure | Character | NodeSchema | RoomSchema":
         if self.location and (loc := self.location()) is not None:
             return loc
         return None

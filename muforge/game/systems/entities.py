@@ -3,6 +3,7 @@ import uuid
 class BaseEntity:
     entity_type: str = None
     entity_family: str = None
+    entity_indexes: list[str] = list()
     
     def __init__(self, id: uuid.UUID, name: str):
         self.id = id
@@ -29,7 +30,7 @@ class BaseEntity:
             "name": self.name,
             "entity_type": self.entity_type,
             "entity_family": self.entity_family,
-            "entity_class": f"{self.__class__.__module__}.{self.__class__.__name__}",
+            "entity_class": f"{self.__class__.__module__}:{self.__class__.__name__}",
         }
     
     def save_data(self) -> dict:

@@ -18,6 +18,7 @@ class AttributeSchema(BaseModel):
 class Character(BaseEntity, HasLocation, HasInventory, HasEquipment):
     entity_type: str = "character"
     entity_family: str = "characters"
+    entity_indexes: list[str] = ["character",]
     
     def __init__(self, id: uuid.UUID, name: str):
         super().__init__(id, name)
