@@ -1,0 +1,13 @@
+id = "room.shop.armory"
+kind = "shop"
+name = "Starforge Armory"
+desc = "Weapons and armor for those who dare the galaxy."
+
+controls = ["interact"]
+
+[meta]
+inventory = [
+  { name = "Plasteel Armor", cost = 60 },
+  { name = "Pulse Rifle", cost = 80 },
+  { name = "Energy Shield", cost = 120 },
+]

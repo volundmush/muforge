@@ -1,0 +1,13 @@
+id = "node.forest.greenveil"
+kind = "forest"
+name = "Greenveil Forest"
+desc = "Tall emerald trees hide ancient ruins and prowling beasts."
+
+controls = ["adventure", "visit"]
+
+[exits]
+"Back to Arena" = "node.arena.gladiator_pit"
+"Darkspire Dungeon" = "node.dungeon.darkspire"
+
+[meta]
+recommended_level = 5

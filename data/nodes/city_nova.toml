@@ -1,0 +1,13 @@
+id = "node.city.nova"
+kind = "city"
+name = "Nova City"
+desc = "A fast-built demo city."
+
+controls = ["visit", "interact", "adventure"]
+
+[exits]
+"Starport" = "node.building.starport"
+"Field Gate" = "node.field.nova_outskirts"
+
+[meta]
+builder = "demo"

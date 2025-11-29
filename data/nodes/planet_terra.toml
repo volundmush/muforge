@@ -1,0 +1,13 @@
+id = "node.planet.terra"
+kind = "planet"
+name = "Terra"
+desc = "A well-mapped starter world."
+
+[exits]
+"Nova City" = "node.city.nova"
+"Grid Entrance" = "grid.0.0"
+
+controls = ["visit", "adventure"]
+
+[meta]
+recommended_level = 1

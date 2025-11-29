@@ -1,0 +1,12 @@
+id = "room.shop.basic"
+kind = "shop"
+name = "Basic Supply Shop"
+desc = "Sells starter gear."
+
+controls = ["interact"]
+
+[meta]
+inventory = [
+  { name = "Medpack", cost = 10 },
+  { name = "Basic Blaster", cost = 25 },
+]

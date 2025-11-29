@@ -11,17 +11,6 @@ from .schemas import (
     AttributeSchema,
 )
 
-# figure out project root dynamically:
-# this file is ...\muforge\muforge\loader.py
-# parents[2] = ...\Networking Project
-BASE_DIR = Path(__file__).resolve().parents[2]
-TEMPLATE_DATA_DIR = BASE_DIR / "mutemplate" / "data"
-
-NODE_DIR = TEMPLATE_DATA_DIR / "nodes"
-ROOM_DIR = TEMPLATE_DATA_DIR / "rooms"
-ATTR_DIR = TEMPLATE_DATA_DIR / "attributes"
-
-
 class Registry:
     def __init__(self) -> None:
         self.nodes: Dict[str, NodeSchema] = {}
@@ -29,6 +18,12 @@ class Registry:
         self.attributes: Dict[str, AttributeSchema] = {}
 
     def load_all(self) -> None:
+        data = Path.cwd() / "data"
+
+        NODE_DIR = data / "nodes"
+        ROOM_DIR = data / "rooms"
+        ATTR_DIR = data / "attributes"
+
         if NODE_DIR.exists():
             for path in NODE_DIR.glob("*.toml"):
                 node = load_node_schema(path)
@@ -53,6 +48,4 @@ class Registry:
     def get_attribute(self, attr_id: str) -> AttributeSchema | None:
         return self.attributes.get(attr_id)
 
-
 registry = Registry()
-registry.load_all()

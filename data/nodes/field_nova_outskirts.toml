@@ -1,0 +1,9 @@
+id = "node.field.nova_outskirts"
+kind = "field"
+name = "Nova Outskirts"
+desc = "A dusty open field on the edge of Nova City."
+
+controls = ["adventure"]
+
+[exits]
+"Back to Nova City" = "node.city.nova"

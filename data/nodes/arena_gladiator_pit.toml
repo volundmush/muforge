@@ -1,0 +1,13 @@
+id = "node.arena.gladiator_pit"
+kind = "arena"
+name = "Gladiator Pit"
+desc = "The roar of the crowd echoes across the stands as fighters clash below."
+
+controls = ["adventure", "visit"]
+
+[exits]
+"Back to Starport" = "node.building.starport"
+"Forest Path" = "node.forest.greenveil"
+
+[meta]
+recommended_level = 3

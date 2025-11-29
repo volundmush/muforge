@@ -1,0 +1,5 @@
+id = "attr.stamina"
+name = "Stamina"
+desc = "Represents your energy for exploring and combat."
+base = 50
+max = 50

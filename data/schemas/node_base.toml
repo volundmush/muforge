@@ -1,0 +1,8 @@
+id = "schema.node.base"
+kind = "base-node"
+name = "Base Node"
+desc = "Base node schema."
+
+[fields]
+required = ["id", "name", "desc"]
+optional = ["exits", "controls", "meta"]

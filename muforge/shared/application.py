@@ -2,7 +2,7 @@ import asyncio
 from loguru import logger
 
 from .service import Service
-from .utils import callables_from_module, class_from_module
+from .utils import callables_from_module, property_from_module
 
 import muforge
 
@@ -26,7 +26,7 @@ class Application:
 
     async def setup_services(self):
         for k, v in muforge.SETTINGS[self.name.upper()].get("services", dict()).items():
-            cls = class_from_module(v)
+            cls = property_from_module(v)
             srv = cls()
             muforge.SERVICES[k] = srv
             if srv.is_valid():

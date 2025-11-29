@@ -66,7 +66,7 @@ async def setup_program(program: str, settings: dict):
         muforge.SSL_CONTEXT = context
 
     for k, v in settings[program.upper()].get("classes", dict()).items():
-        muforge.CLASSES[k] = class_from_module(v)
+        muforge.CLASSES[k] = property_from_module(v)
 
 
 async def run_program(program: str, settings: dict):
@@ -601,6 +601,19 @@ def class_from_module(path, defaultpaths=None, fallback=None):
 
 # alias
 object_from_module = class_from_module
+
+def property_from_module(path: str) -> typing.Any:
+    """
+    Return a property (variable, constant, etc.) from a module, given the property's full python path.
+
+    Args:
+        path (str): path.to.module:property
+    """
+    if not path or ":" not in path:
+        raise ImportError("Path is not in module:property format!")
+    module_path, property_name = path.split(":", 1)
+    module = importlib.import_module(module_path)
+    return getattr(module, property_name)
 
 
 class LogTime:

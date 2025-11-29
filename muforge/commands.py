@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Dict, Any, Tuple, Optional, List
 from collections import deque
 
-from .loader import registry
+import muforge
 from .models import Player
 from .procedural import generate_adventure_field, field_to_dict
 
@@ -40,7 +40,7 @@ def _bfs_path(start_id: str, target_id: str) -> Optional[List[str]]:
                 current = came_from[current]
             path.reverse()
             return path
-        node = registry.get_node(current)
+        node = muforge.REGISTRY.get_node(current)
         if not node:
             continue
         for label, nxt in node.exits.items():
@@ -56,7 +56,7 @@ def _bfs_path(start_id: str, target_id: str) -> Optional[List[str]]:
 def exec_command(player: Player, raw: str) -> Dict[str, Any]:
     cmd, arg = parse_command(raw)
 
-    node = registry.get_node(player.current_node_id)
+    node = muforge.REGISTRY.get_node(player.current_node_id)
     if not node:
         raise CommandError(f"Current node {player.current_node_id} not found.")
 
@@ -91,7 +91,7 @@ def exec_command(player: Player, raw: str) -> Dict[str, Any]:
         if not arg:
             raise CommandError("info needs an id, e.g. 'info node.city.nova'")
         # try node
-        target = registry.get_node(arg)
+        target = muforge.REGISTRY.get_node(arg)
         if target:
             return {
                 "ok": True,
@@ -105,7 +105,7 @@ def exec_command(player: Player, raw: str) -> Dict[str, Any]:
                 },
             }
         # try room
-        room = registry.get_room(arg)
+        room = muforge.REGISTRY.get_room(arg)
         if room:
             return {
                 "ok": True,
@@ -132,7 +132,7 @@ def exec_command(player: Player, raw: str) -> Dict[str, Any]:
         if arg not in node.exits:
             raise CommandError(f"No exit named '{arg}' here.")
         target_id = node.exits[arg]
-        target = registry.get_node(target_id)
+        target = muforge.REGISTRY.get_node(target_id)
         if not target:
             raise CommandError(f"Target node {target_id} not found.")
         player.current_node_id = target_id
@@ -251,7 +251,7 @@ def exec_command(player: Player, raw: str) -> Dict[str, Any]:
             return {"ok": True, "msg": "Nothing to interact with here."}
         shop_objs = []
         for sid in shops:
-            shop = registry.get_room(sid)
+            shop = muforge.REGISTRY.get_room(sid)
             if shop:
                 shop_objs.append(
                     {

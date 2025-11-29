@@ -75,17 +75,17 @@ application = "muforge.portal.application.Application"
 # it inherits from muforge.portal.base_connection.BaseConnection
 # so anything that wants to change the behavior of the connection
 # should inherit from telnet.
-telnet_connection = "muforge.portal.telnet.TelnetConnection"
+telnet_connection = "muforge.portal.telnet:TelnetConnection"
 ssh_connection = "muforge.portal.ssh.SSHConnection"
 # The parsers that interpret user commands at different states.
-login_parser = "muforge.portal.parsers.login.LoginParser"
-user_parser = "muforge.portal.parsers.user.UserParser"
-character_parser = "muforge.portal.parsers.character.CharacterParser"
+login_parser = "muforge.portal.parsers.login:LoginParser"
+user_parser = "muforge.portal.parsers.user:UserParser"
+character_parser = "muforge.portal.parsers.character:CharacterParser"
 
 [portal.services]
 # Classes that'll be launched by the portal when it boots.
-telnet = "muforge.portal.telnet.TelnetService"
-telnets = "muforge.portal.telnet.TLSTelnetService"
+telnet = "muforge.portal.telnet:TelnetService"
+telnets = "muforge.portal.telnet:TLSTelnetService"
 
 [portal.commands]
 # These commands are imported by the character_parser.
@@ -105,7 +105,12 @@ characters = "muforge.events.characters"
 # classes you want to be used for X purposes.
 
 # The class that'll be used to handle the game.
-application = "muforge.game.application.Application"
+application = "muforge.game.application:Application"
+
+# extra classes added in patel's branch
+node_loader = "muforge.loader:registry"
+command_handler = "muforge.engine:run_player_command"
+state_provider = "muforge.engine:get_player_state"
 
 [game.lockfuncs]
 # The key is only used for overrides or disables. It loads all functions defined
@@ -120,10 +125,9 @@ trusted_proxy_ips = ["127.0.0.1"]
 port = 8000
 
 [fastapi.routers]
-# every module listed here must have a global named
-# "router" to be imported.
 # The key is the mount path. like /auth or /users
-auth = "muforge.game.routers.auth"
-users = "muforge.game.routers.users"
-characters = "muforge.game.routers.characters"
-system = "muforge.game.routers.system"
+auth = "muforge.game.routers.auth:router"
+users = "muforge.game.routers.users:router"
+characters = "muforge.game.routers.characters:router"
+system = "muforge.game.routers.system:router"
+"api/game" = "muforge.game.routers.api_game:router"

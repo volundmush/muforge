@@ -3,12 +3,12 @@ from typing import Dict, Any
 
 from .models import game_state
 from .commands import exec_command, CommandError
-from .loader import registry
+import muforge
 
 
 def get_player_state(player_id: str) -> Dict[str, Any]:
     player = game_state.get_or_create_player(player_id)
-    node = registry.get_node(player.current_node_id)
+    node = muforge.REGISTRY.get_node(player.current_node_id)
     return {
         "player": player.to_dict(),
         "node": {

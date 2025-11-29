@@ -1,0 +1,13 @@
+id = "node.building.starport"
+kind = "building"
+name = "Nova Starport"
+desc = "A bustling hub for travelers, traders, and mercenaries."
+
+controls = ["visit", "interact"]
+
+[exits]
+"Back to Nova City" = "node.city.nova"
+"Gladiator Arena" = "node.arena.gladiator_pit"
+
+[meta]
+shop_ids = ["room.shop_basic", "room.shop.armory", "room.inn.starrest"]

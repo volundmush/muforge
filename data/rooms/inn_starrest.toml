@@ -1,0 +1,12 @@
+id = "room.inn.starrest"
+kind = "inn"
+name = "Starrest Inn"
+desc = "A quiet place to rest after your adventures."
+
+controls = ["interact"]
+
+[meta]
+services = [
+  { name = "Room Stay", cost = 15 },
+  { name = "Meal", cost = 8 },
+]

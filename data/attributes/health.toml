@@ -1,0 +1,5 @@
+id = "attr.health"
+name = "Health"
+desc = "Player vitality."
+base = 100
+max = 100

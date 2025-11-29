@@ -1,0 +1,13 @@
+id = "node.dungeon.darkspire"
+kind = "dungeon"
+name = "Darkspire Dungeon"
+desc = "A crumbling underground fortress filled with traps and echoes of the past."
+
+controls = ["adventure"]
+
+
+[meta]
+recommended_level = 7
+[exits]
+"Back to Forest" = "node.forest.greenveil"
+"Return to Nova City" = "node.city.nova"

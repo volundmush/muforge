@@ -23,3 +23,5 @@ LOCATION_COMPONENTS = dict()
 ENTITIES = dict()
 ENTITY_CLASSES = dict()
 ENTITY_COMPONENTS = dict()
+
+REGISTRY = dict()
