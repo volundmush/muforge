@@ -16,7 +16,8 @@ from hypercorn import Config
 from hypercorn.asyncio import serve
 
 from muforge.shared.application import Application as OldApplication
-from muforge.shared.utils import callables_from_module, property_from_module, EventHub
+from muforge.shared.utils import callables_from_module, property_from_module
+from muforge.game.systems.events import EventHub
 
 async def init_connection(conn: asyncpg.Connection):
     await conn.set_type_codec(
@@ -35,6 +36,12 @@ class Application(OldApplication):
         super().__init__()
         self.fastapi_config = None
         self.fastapi_instance = None
+
+    async def setup_commands(self):
+        for k, v in muforge.SETTINGS["GAME"]["commands"].items():
+            for name, command in callables_from_module(v).items():
+                muforge.GAME_COMMANDS[command.name] = command
+                muforge.GAME_COMMANDS_PRIORITY[command.priority].append(command)
 
     async def setup_asyncpg(self):
         settings = muforge.SETTINGS["POSTGRESQL"]

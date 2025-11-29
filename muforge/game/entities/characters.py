@@ -3,7 +3,7 @@ import uuid
 
 from pydantic import BaseModel
 
-from .entities import BaseEntity
+from ..entities.base import BaseEntity
 from .mixins import HasLocation, HasEquipment, HasInventory
 
 
@@ -20,9 +20,9 @@ class Character(BaseEntity, HasLocation, HasInventory, HasEquipment):
     entity_family: str = "characters"
     entity_indexes: list[str] = ["character",]
     
-    def __init__(self, id: uuid.UUID, name: str):
-        super().__init__(id, name)
+    def __init__(self, id: uuid.UUID, name: str, **kwargs):
+        super().__init__(id, name, **kwargs)
         HasLocation.__init__(self)
         HasInventory.__init__(self)
         HasEquipment.__init__(self)
-        self.session: "None | CharacterSession" = None
+        
