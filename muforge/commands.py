@@ -40,7 +40,7 @@ def _bfs_path(start_id: str, target_id: str) -> Optional[List[str]]:
                 current = came_from[current]
             path.reverse()
             return path
-        node = muforge.REGISTRY.get_node(current)
+        node = muforge.NODES.get(current)
         if not node:
             continue
         for label, nxt in node.exits.items():
@@ -56,7 +56,7 @@ def _bfs_path(start_id: str, target_id: str) -> Optional[List[str]]:
 def exec_command(player: Player, raw: str) -> Dict[str, Any]:
     cmd, arg = parse_command(raw)
 
-    node = muforge.REGISTRY.get_node(player.current_node_id)
+    node = muforge.NODES.get(player.current_node_id)
     if not node:
         raise CommandError(f"Current node {player.current_node_id} not found.")
 
@@ -91,7 +91,7 @@ def exec_command(player: Player, raw: str) -> Dict[str, Any]:
         if not arg:
             raise CommandError("info needs an id, e.g. 'info node.city.nova'")
         # try node
-        target = muforge.REGISTRY.get_node(arg)
+        target = muforge.NODES.get(arg)
         if target:
             return {
                 "ok": True,
@@ -105,7 +105,7 @@ def exec_command(player: Player, raw: str) -> Dict[str, Any]:
                 },
             }
         # try room
-        room = muforge.REGISTRY.get_room(arg)
+        room = muforge.ROOMS.get(arg)
         if room:
             return {
                 "ok": True,
@@ -132,7 +132,7 @@ def exec_command(player: Player, raw: str) -> Dict[str, Any]:
         if arg not in node.exits:
             raise CommandError(f"No exit named '{arg}' here.")
         target_id = node.exits[arg]
-        target = muforge.REGISTRY.get_node(target_id)
+        target = muforge.NODES.get(target_id)
         if not target:
             raise CommandError(f"Target node {target_id} not found.")
         player.current_node_id = target_id
@@ -251,7 +251,7 @@ def exec_command(player: Player, raw: str) -> Dict[str, Any]:
             return {"ok": True, "msg": "Nothing to interact with here."}
         shop_objs = []
         for sid in shops:
-            shop = muforge.REGISTRY.get_room(sid)
+            shop = muforge.ROOMS.get(sid)
             if shop:
                 shop_objs.append(
                     {

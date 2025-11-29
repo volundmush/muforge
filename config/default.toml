@@ -131,3 +131,8 @@ users = "muforge.game.routers.users:router"
 characters = "muforge.game.routers.characters:router"
 system = "muforge.game.routers.system:router"
 "api/game" = "muforge.game.routers.api_game:router"
+
+[game.data_schemas]
+attributes = {"field": "ATTRIBUTES", "class": "muforge.game.systems.characters:AttributeSchema"}
+nodes = {"field": "NODES", "class": "muforge.game.systems.locations:NodeSchema"}
+rooms = {"field": "ROOMS", "class": "muforge.game.systems.locations:RoomSchema"}

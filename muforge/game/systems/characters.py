@@ -1,8 +1,19 @@
 import weakref
 import uuid
 
+from pydantic import BaseModel
+
 from .entities import BaseEntity
 from .mixins import HasLocation, HasEquipment, HasInventory
+
+
+class AttributeSchema(BaseModel):
+    id: str
+    name: str
+    desc: str = ""
+    base: int = 0
+    max: int = 0
+
 
 class Character(BaseEntity, HasLocation, HasInventory, HasEquipment):
     entity_type: str = "character"

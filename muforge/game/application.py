@@ -3,6 +3,7 @@ import importlib
 import asyncpg
 import orjson
 import asyncio
+import tomllib
 
 from lark import Lark
 from pathlib import Path
@@ -16,7 +17,6 @@ from hypercorn.asyncio import serve
 
 from muforge.shared.application import Application as OldApplication
 from muforge.shared.utils import callables_from_module, property_from_module, EventHub
-from muforge.loader import Registry
 
 async def init_connection(conn: asyncpg.Connection):
     await conn.set_type_codec(
@@ -105,15 +105,40 @@ class Application(OldApplication):
             parser = Lark(data)
             muforge.LOCKPARSER = parser
 
-    async def setup_registry(self):
-        registry = Registry()
-        muforge.REGISTRY = registry
-        registry.load_all()
+    async def setup_game_data(self):
+        data_path = Path.cwd() / "data"
+        schemas = muforge.SETTINGS["GAME"].get("data_schemas", dict())
+        for dir_name, v in schemas.items():
+            data_dir = data_path / dir_name
+            # if it exists, grab all .toml files and load them.
+            if not data_dir.exists():
+                continue
+            
+            schema_classes = dict()
+            def get_schema_classes(module_path: str):
+                if (found := schema_classes.get(module_path, None)) is not None:
+                    return found
+                cls = property_from_module(module_path)
+                schema_classes[module_path] = cls
+                return cls
+
+            # for each .toml file:
+            for path in data_dir.glob("*.toml"):
+                data = None
+                with path.open("rb") as f:
+                    data = tomllib.load(f)
+                cls = get_schema_classes(v['class'])
+                obj = cls(**data)
+                if not isinstance(getattr(muforge, v['field'], None), dict):
+                    setattr(muforge, v['field'], dict())
+                store = getattr(muforge, v['field'])
+                store[obj.id] = obj
+            
 
     async def setup(self):
         await super().setup()
         muforge.EVENT_HUB = EventHub()
-        await self.setup_registry()
+        await self.setup_game_data()
         await self.setup_lark()
         await self.setup_asyncpg()
         await self.setup_fastapi()

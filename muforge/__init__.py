@@ -16,6 +16,9 @@ LISTENERS_TABLE = dict()
 PORTAL_COMMANDS = dict()
 PORTAL_COMMANDS_PRIORITY = defaultdict(list)
 
+GAME_COMMANDS = dict()
+GAME_COMMANDS_PRIORITY = defaultdict(list)
+
 LOCATIONS = dict()
 LOCATION_CLASSES = dict()
 LOCATION_COMPONENTS = dict()
@@ -24,4 +27,8 @@ ENTITIES = dict()
 ENTITY_CLASSES = dict()
 ENTITY_COMPONENTS = dict()
 
-REGISTRY = dict()
+ENTITY_TYPE_INDEX = defaultdict(set)
+
+ATTRIBUTES = dict()
+NODES = dict()
+ROOMS = dict()

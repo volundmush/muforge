@@ -8,7 +8,7 @@ import muforge
 
 def get_player_state(player_id: str) -> Dict[str, Any]:
     player = game_state.get_or_create_player(player_id)
-    node = muforge.REGISTRY.get_node(player.current_node_id)
+    node = muforge.NODES.get(player.current_node_id)
     return {
         "player": player.to_dict(),
         "node": {

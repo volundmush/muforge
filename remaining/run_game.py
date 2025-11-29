@@ -6,7 +6,6 @@ from dynaconf import Dynaconf
 from muforge.engine import get_player_state, run_player_command
 from muforge.game.application import Application as GameApplication
 from muforge.shared.utils import run_program
-from game_loader import validate_all
 from virtual_map import build_grid
 # try color
 try:
@@ -24,12 +23,6 @@ settings = Dynaconf(environments=True, settings_files=[], envvar_prefix=False)
 settings.set("GAME", {})
 settings.set("MSSP", {"NAME": "Demo MUD"})
 
-
-async def patched_setup(self: GameApplication):
-    await super(GameApplication, self).setup()
-GameApplication.setup = patched_setup
-
-validate_all()
 build_grid(50, 50, "grid")
 
 def print_node(node: dict):
@@ -136,9 +129,3 @@ async def patched_run(self: GameApplication):
             for r in res["rewards"]:
                 print(f"  • {r['name']} ×{r['amount']}")
 
-
-GameApplication.run = patched_run
-muforge.CLASSES["application"] = GameApplication
-
-if __name__ == "__main__":
-    asyncio.run(run_program("game", settings))
