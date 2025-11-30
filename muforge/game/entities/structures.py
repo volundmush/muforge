@@ -1,5 +1,5 @@
 import uuid
-from ..entities.base import BaseEntity
+from .base import BaseEntity
 from .mixins import HasLocation, HasInventory, HasEquipment
 
 class Structure(BaseEntity, HasLocation, HasInventory, HasEquipment):

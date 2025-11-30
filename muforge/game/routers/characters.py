@@ -78,7 +78,7 @@ class CommandSubmission(BaseModel):
 @router.post("/{character_id}/command")
 async def submit_command(
         user: Annotated[UserModel, Depends(get_current_user)],
-        character_id: int,
+        character_id: uuid.UUID,
         command: Annotated[CommandSubmission, Body()],
 ):
     if character_id not in user.characters:
@@ -86,12 +86,12 @@ async def submit_command(
             status_code=403, detail="You do not have permission to use this character."
         )
 
-    if character_id not in muforge.EVENT_HUB.online():
+    if not (session := muforge.SESSIONS.get(character_id, None)):
         raise HTTPException(
-            status_code=403, detail="Character is not online."
+            status_code=404, detail="Character entity not found."
         )
 
-    #do something with the command here...
+    await session.execute_command(command.command)
 
     return {"status": "ok"}
 

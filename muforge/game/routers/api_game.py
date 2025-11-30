@@ -2,8 +2,10 @@ from typing import Annotated
 
 import muforge
 import jwt
+import uuid
+import random
 
-from fastapi import APIRouter, Depends, Body, HTTPException, status, Request
+from fastapi import APIRouter, Depends, Body, HTTPException, status, Request, Query
 from fastapi.security import OAuth2PasswordRequestForm
 
 from muforge.shared.models.auth import TokenResponse, UserLogin, RefreshTokenModel
@@ -92,18 +94,18 @@ async def run_command(req: CommandRequest):
         }
     
 @router.post("/heal")
-async def heal_player(session_id: str = Query(...)):
-    if session_id not in sessions:
+async def heal_player(session_id: uuid.UUID = Query(...)):
+    if (session := muforge.SESSIONS.get(session_id, None)) is None:
         raise HTTPException(404, "Session not found")
-    session = sessions[session_id]
-    player = session["player"]
+
+    player = session.active_character()
 
     amount = 15
-    player["health"] = min(player["max_health"], player["health"] + amount)
+    player.health = min(player.max_health, player.health + amount)
 
     return {
         "message": f"Healed for {amount}",
-        "player": player
+        "player": player.to_dict()
     }
 
 @router.post("/shop/buy")

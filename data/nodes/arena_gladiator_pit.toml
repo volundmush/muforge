@@ -2,7 +2,6 @@ id = "node.arena.gladiator_pit"
 kind = "arena"
 name = "Gladiator Pit"
 desc = "The roar of the crowd echoes across the stands as fighters clash below."
-
 controls = ["adventure", "visit"]
 
 [exits]

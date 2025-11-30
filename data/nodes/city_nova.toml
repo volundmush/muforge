@@ -2,7 +2,6 @@ id = "node.city.nova"
 kind = "city"
 name = "Nova City"
 desc = "A fast-built demo city."
-
 controls = ["visit", "interact", "adventure"]
 
 [exits]

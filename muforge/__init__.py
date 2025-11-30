@@ -1,4 +1,5 @@
 from collections import defaultdict
+import uuid
 
 SETTINGS = dict()
 APP = None
@@ -19,16 +20,18 @@ PORTAL_COMMANDS_PRIORITY = defaultdict(list)
 GAME_COMMANDS = dict()
 GAME_COMMANDS_PRIORITY = defaultdict(list)
 
-LOCATIONS = dict()
+LOCATIONS: dict[uuid.UUID, "LocationSchema"] = dict()
 LOCATION_CLASSES = dict()
 LOCATION_COMPONENTS = dict()
 
-ENTITIES = dict()
+ENTITIES: dict[uuid.UUID, "BaseEntity"] = dict()
 ENTITY_CLASSES = dict()
 ENTITY_COMPONENTS = dict()
 
-ENTITY_TYPE_INDEX = defaultdict(set)
+ENTITY_TYPE_INDEX: dict[str, set["BaseEntity"]] = defaultdict(set)
 
 ATTRIBUTES = dict()
 NODES = dict()
 ROOMS = dict()
+
+SESSIONS: dict[uuid.UUID, "GameSession"] = dict()

@@ -3,7 +3,7 @@ import uuid
 
 from pydantic import BaseModel
 
-from ..entities.base import BaseEntity
+from .base import BaseEntity
 from .mixins import HasLocation, HasEquipment, HasInventory
 
 
@@ -25,4 +25,24 @@ class Character(BaseEntity, HasLocation, HasInventory, HasEquipment):
         HasLocation.__init__(self)
         HasInventory.__init__(self)
         HasEquipment.__init__(self)
-        
+        self.health = kwargs.get("health", 100)
+        self.max_health = kwargs.get("max_health", 100)
+        self.xp = kwargs.get("xp", 0)
+        self.level = kwargs.get("level", 1)
+        self.xp_to_next = kwargs.get("xp_to_next", 50)
+        self.credits = kwargs.get("credits", 0)
+    
+    def to_dict(self) -> dict:
+        data = {
+            "id": self.id,
+            "name": self.name,
+            "health": self.health,
+            "max_health": self.max_health,
+            "xp": self.xp,
+            "level": self.level,
+            "xp_to_next": self.xp_to_next,
+            "credits": self.credits
+        }
+        if self.location:
+            data["location"] = self.location.id
+        return data

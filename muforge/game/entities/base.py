@@ -74,7 +74,7 @@ class BaseEntity:
             if command.check_match(self, cmd):
                 return command
     
-    async def handle_command(self, event: str):
+    async def handle_command(self, event: str) -> dict:
 
         try:
             if not (match_data := CMD_MATCH.match(event)):
@@ -88,15 +88,18 @@ class BaseEntity:
             if not (cmd := self.match_command(cmd_key.lower())):
                 raise ValueError(f"Huh? (Type 'help' for help)")
             command = cmd(self, cmd_key, match_dict)
-            await command.execute()
+            result = await command.execute()
+            return result or {"ok": True}
         except ValueError as error:
             await self.send_line(f"{error}")
+            return {"ok": False, "error": str(error)}
         except Exception as error:
             if self.get_admin_level() >= 1:
                 await self.send_line(f"An error occurred: {error}")
             else:
                 await self.send_line(f"An unknown error occurred. Contact staff.")
             logger.exception(error)
+            return {"ok": False, "error": str(error)}
     
     async def send_line(self, text: str):
         if self.session:

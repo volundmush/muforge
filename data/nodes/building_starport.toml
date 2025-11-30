@@ -2,7 +2,6 @@ id = "node.building.starport"
 kind = "building"
 name = "Nova Starport"
 desc = "A bustling hub for travelers, traders, and mercenaries."
-
 controls = ["visit", "interact"]
 
 [exits]

@@ -141,6 +141,6 @@ help = "muforge.game.commands.help"
 comm = "muforge.game.commands.comm"
 
 [game.data_schemas]
-attributes = {"field": "ATTRIBUTES", "class": "muforge.game.systems.characters:AttributeSchema"}
-nodes = {"field": "NODES", "class": "muforge.game.systems.locations:NodeSchema"}
-rooms = {"field": "ROOMS", "class": "muforge.game.systems.locations:RoomSchema"}
+attributes = {"field" = "ATTRIBUTES", "class" = "muforge.game.entities.characters:AttributeSchema"}
+nodes = {"field" = "NODES", "class" = "muforge.game.systems.locations:NodeSchema"}
+rooms = {"field" = "ROOMS", "class" = "muforge.game.systems.locations:RoomSchema"}

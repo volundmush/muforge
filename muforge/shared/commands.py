@@ -76,18 +76,20 @@ class Command:
         """
         return True
 
-    async def execute(self):
+    async def execute(self) -> dict:
         """
         Execute the command.
         """
         if not self.can_execute():
-            return
+            return {"ok": False, "error": "Cannot execute command"}
         try:
-            await self.func()
+            result = await self.func()
+            return result or {"ok": True}
         except self.Error as err:
             await self.send_line(f"{err}")
+            return {"ok": False, "error": str(err)}
 
-    async def func(self):
+    async def func(self) -> dict | None:
         """
         Execute the command.
         """

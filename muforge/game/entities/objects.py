@@ -1,5 +1,5 @@
 import uuid
-from ..entities.base import BaseEntity
+from .base import BaseEntity
 from .mixins import HasLocation, HasEquipment, HasInventory
 
 class Object(BaseEntity, HasLocation, HasInventory, HasEquipment):
