@@ -1,4 +1,6 @@
-from typing import Annotated
+from typing import Annotated, Optional, List
+
+from pydantic import BaseModel
 
 import muforge
 import jwt
@@ -14,7 +16,24 @@ from ..db import users as users_db, auth as auth_db
 from muforge.shared.utils import crypt_context
 from .utils import get_real_ip
 
+class CommandRequest(BaseModel):
+    session_id: uuid.UUID
+    command: str
+    args: Optional[List[str]] = []
+
+class ShopBuyRequest(BaseModel):
+    session_id: uuid.UUID
+    item_name: str
+
+class SearchRequest(BaseModel):
+    session_id: uuid.UUID
+
 router = APIRouter()
+
+def get_session(session_id: uuid.UUID):
+    if (session := muforge.SESSIONS.get(session_id, None)) is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session
 
 @router.get("/api/ping")
 async def ping():
@@ -51,11 +70,9 @@ async def start_game():
     return {"session_id": session_id}
 
 @router.get("/state")
-async def get_game_state(session_id: str = Query(...)):
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
+async def get_game_state(session_id: uuid.UUID = Query(...)):
+    session = get_session(session_id)
 
-    session = sessions[session_id]
     return {
         "player": session["player"],
         "node": session["node"],
@@ -65,9 +82,8 @@ async def get_game_state(session_id: str = Query(...)):
 
 @router.post("/command")
 async def run_command(req: CommandRequest):
-    if req.session_id not in sessions:
-        raise HTTPException(404, "Session not found")
-    session = sessions[req.session_id]
+    session = get_session(req.session_id)
+
     player = session["player"]
 
     if execute_command_real:
@@ -95,8 +111,7 @@ async def run_command(req: CommandRequest):
     
 @router.post("/heal")
 async def heal_player(session_id: uuid.UUID = Query(...)):
-    if (session := muforge.SESSIONS.get(session_id, None)) is None:
-        raise HTTPException(404, "Session not found")
+    session = get_session(session_id)
 
     player = session.active_character()
 
@@ -110,9 +125,8 @@ async def heal_player(session_id: uuid.UUID = Query(...)):
 
 @router.post("/shop/buy")
 async def shop_buy(req: ShopBuyRequest):
-    if req.session_id not in sessions:
-        raise HTTPException(404, "Session not found")
-    session = sessions[req.session_id]
+    session = get_session(req.session_id)
+
     player = session["player"]
 
     # Basic prices – keep in sync with your front-end ITEM_DATABASE
@@ -157,9 +171,8 @@ MAX_INVENTORY_SLOTS = 6   # keep in sync with frontend
 
 @router.post("/search")
 async def search(req: SearchRequest):
-    if req.session_id not in sessions:
-        raise HTTPException(404, "Session not found")
-    session = sessions[req.session_id]
+    session = get_session(req.session_id)
+
     player = session["player"]
 
     inventory = player.get("inventory") or []
@@ -211,15 +224,12 @@ async def search(req: SearchRequest):
     }
 
 @router.post("/adventure")
-async def start_adventure(session_id: str = Query(...)):
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
+async def start_adventure(session_id: uuid.UUID = Query(...)):
+    session = get_session(session_id)
 
-    session = sessions[session_id]
     player = session["player"]
 
     # simple 1–2 raiders
-    import random
     enemy_count = random.randint(1, 2)
     enemies = []
     for i in range(enemy_count):
@@ -253,13 +263,11 @@ async def start_adventure(session_id: str = Query(...)):
 
 @router.post("/attack")
 async def attack_enemy(
-    session_id: str = Query(...),
+    session_id: uuid.UUID = Query(...),
     enemy_id: int = Query(...),
 ):
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = get_session(session_id)
 
-    session = sessions[session_id]
     player = session["player"]
     combat = session.get("combat")
     if not combat:
@@ -329,11 +337,9 @@ async def attack_enemy(
     }
 
 @router.post("/loot/claim")
-async def claim_loot(session_id: str = Query(...)):
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
+async def claim_loot(session_id: uuid.UUID = Query(...)):
+    session = get_session(session_id)
 
-    session = sessions[session_id]
     player = session["player"]
     loot = session.get("unclaimed_loot", [])
 
@@ -358,11 +364,9 @@ async def claim_loot(session_id: str = Query(...)):
     }
 
 @router.post("/unlock")
-async def unlock_location(session_id: str = Query(...), location_id: str = Query(...)):
-    if session_id not in sessions:
-        raise HTTPException(404, "Session not found")
-
-    session = sessions[session_id]
+async def unlock_location(session_id: uuid.UUID = Query(...), location_id: str = Query(...)):
+    session = get_session(session_id)
+    
     player = session["player"]
 
     # Example costs (Delta Base = 50 credits)

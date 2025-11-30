@@ -298,17 +298,7 @@ def execute_command_simple(command: str, args, player: dict, session: dict) -> d
 sessions: Dict[str, Dict[str, Any]] = {}
 
 # ---------- models ----------
-class CommandRequest(BaseModel):
-    session_id: str
-    command: str
-    args: Optional[List[str]] = []
 
-class ShopBuyRequest(BaseModel):
-    session_id: str
-    item_name: str
-
-class SearchRequest(BaseModel):
-    session_id: str
 
 @app.on_event("startup")
 async def startup():
