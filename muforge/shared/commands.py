@@ -6,7 +6,6 @@ CMD_MATCH = re.compile(
 )
 
 
-
 class Command:
     """
     Help not implemented for this command. Contact staff!
@@ -25,7 +24,7 @@ class Command:
         pass
 
     @classmethod
-    async def check_match(cls, enactor: "ActingAs", command: str) -> typing.Optional[str]:
+    def check_match(cls, enactor: "ActingAs", command: str) -> typing.Optional[str]:
         """
         Check if the command matches the user's input.
 
@@ -47,7 +46,7 @@ class Command:
         return None
 
     @classmethod
-    async def check_access(cls, enactor: "ActingAs") -> bool:
+    def check_access(cls, enactor: "ActingAs") -> bool:
         """
         Check if the user should have access to the command.
 
@@ -71,7 +70,7 @@ class Command:
         self.args_array = self.args.split()
         
 
-    async def can_execute(self) -> bool:
+    def can_execute(self) -> bool:
         """
         Check if the command can be executed.
         """
@@ -81,7 +80,7 @@ class Command:
         """
         Execute the command.
         """
-        if not await self.can_execute():
+        if not self.can_execute():
             return
         try:
             await self.func()

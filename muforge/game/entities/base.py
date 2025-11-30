@@ -52,11 +52,6 @@ class BaseEntity:
             return self.session.user.admin_level
         return 0
 
-    async def send_event(self, event) -> None:
-        if self.session:
-            await self.session.send_event(event)
-    
-
     def available_commands(self) -> dict[int, list["Command"]]:
         out = dict()
         for priority, commands in muforge.GAME_COMMANDS_PRIORITY.items():
@@ -110,3 +105,7 @@ class BaseEntity:
     async def send_text(self, text: str):
         if self.session:
             await self.session.send_text(text)
+    
+    async def send_event(self, event) -> None:
+        if self.session:
+            await self.session.send_event(event)

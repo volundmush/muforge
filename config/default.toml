@@ -132,6 +132,14 @@ characters = "muforge.game.routers.characters:router"
 system = "muforge.game.routers.system:router"
 "api/game" = "muforge.game.routers.api_game:router"
 
+[game.commands]
+# These commands are imported by the entity system.
+# The key only matters for overrides or disables. All callables
+# from the module are loaded.
+#system = "muforge.game.commands.system"
+help = "muforge.game.commands.help"
+comm = "muforge.game.commands.comm"
+
 [game.data_schemas]
 attributes = {"field": "ATTRIBUTES", "class": "muforge.game.systems.characters:AttributeSchema"}
 nodes = {"field": "NODES", "class": "muforge.game.systems.locations:NodeSchema"}
