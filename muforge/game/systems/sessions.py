@@ -8,11 +8,18 @@ class Session:
 
     def __init__(self, pc: "PlayerCharacter"):
         self.pc = pc
+        self.player = pc
         self.puppet = pc
         self.created_at = datetime.now(timezone.utc)
         self.last_active_at = datetime.now(timezone.utc)
         self.subscriptions: list[asyncio.Queue] = []
         self.active = True
+
+        self.node = None
+        self.combat = None
+        self.unclaimed_loot = list()
+
+
     
     async def send_event(self, event) -> None:
         for q in self.subscriptions:

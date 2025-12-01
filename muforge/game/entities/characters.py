@@ -31,6 +31,7 @@ class Character(BaseEntity, HasLocation, HasInventory, HasEquipment):
         self.level = kwargs.get("level", 1)
         self.xp_to_next = kwargs.get("xp_to_next", 50)
         self.credits = kwargs.get("credits", 0)
+        self.unlocked_locations = kwargs.get("unlocked_locations", [])
     
     def to_dict(self) -> dict:
         data = {

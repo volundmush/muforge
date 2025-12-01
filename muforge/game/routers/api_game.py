@@ -39,75 +39,27 @@ def get_session(session_id: uuid.UUID):
 async def ping():
     return {"status": "ok"}
 
-@router.post("/start")
-async def start_game():
-    session_id = str(uuid.uuid4())
-
-    player = {
-        "name": "Traveler",
-        "health": 100,
-        "max_health": 100,
-        "xp": 0,
-        "xp_to_next": 50,
-        "level": 1,
-        "credits": 0,
-        "inventory": [],
-    }
-
-    node = {
-        "id": "terra",
-        "name": "Terra",
-        "desc": "The home planet. Your journey begins here.",
-    }
-
-    sessions[session_id] = {
-        "player": player,
-        "node": node,
-        "combat": None,
-        "unclaimed_loot": [],
-    }
-
-    return {"session_id": session_id}
 
 @router.get("/state")
 async def get_game_state(session_id: uuid.UUID = Query(...)):
     session = get_session(session_id)
 
     return {
-        "player": session["player"],
-        "node": session["node"],
-        "combat": session["combat"],
-        "loot": session.get("unclaimed_loot", []),
+        "player": session.player.to_dict(),
+        "node": session.node,
+        "combat": session.combat,
+        "loot": session.unclaimed_loot,
     }
 
 @router.post("/command")
 async def run_command(req: CommandRequest):
     session = get_session(req.session_id)
 
-    player = session["player"]
+    command = req.command.strip() + " " + " ".join(req.args or [])
+    command = command.strip()
 
-    if execute_command_real:
-        result = execute_command_real(
-            command=req.command,
-            args=req.args or [],
-            player=player,
-            session=session,
-        )
-        # Legacy format conversion
-        return {
-            "success": result.get("success", True),
-            "message": result.get("message", ""),
-            "data": result.get("data", {}),
-        }
-    else:
-        result = execute_command_simple(req.command, req.args or [], player, session)
-        # New format: {ok, msg, player}
-        return {
-            "ok": result.get("ok", False),
-            "msg": result.get("msg", ""),
-            "error": result.get("msg", "") if not result.get("ok") else None,
-            "player": result.get("player", player),
-        }
+    result = await session.execute_command(command)
+    return result
     
 @router.post("/heal")
 async def heal_player(session_id: uuid.UUID = Query(...)):
@@ -127,7 +79,7 @@ async def heal_player(session_id: uuid.UUID = Query(...)):
 async def shop_buy(req: ShopBuyRequest):
     session = get_session(req.session_id)
 
-    player = session["player"]
+    player = session.player
 
     # Basic prices – keep in sync with your front-end ITEM_DATABASE
     PRICES = {
@@ -147,24 +99,18 @@ async def shop_buy(req: ShopBuyRequest):
     if cost is None:
         return {"ok": False, "msg": f"{name} cannot be bought here."}
 
-    credits = player.get("credits", 0)
-    if credits < cost:
+    if player.credits < cost:
         return {"ok": False, "msg": "Not enough credits."}
 
-    credits -= cost
-    player["credits"] = credits
+    player.credits -= cost
 
-    inv = player.get("inventory") or []
     # normalize to the same shape we use in /state
-    inv.append({"name": name, "qty": 1})
-    player["inventory"] = inv
-
-    session["player"] = player
+    player.inventory.append({"name": name, "qty": 1})
 
     return {
         "ok": True,
         "msg": f"Purchased {name} for {cost} credits!",
-        "player": player,
+        "player": player.to_dict(),
     }
 
 MAX_INVENTORY_SLOTS = 6   # keep in sync with frontend
@@ -173,16 +119,16 @@ MAX_INVENTORY_SLOTS = 6   # keep in sync with frontend
 async def search(req: SearchRequest):
     session = get_session(req.session_id)
 
-    player = session["player"]
+    player = session.player
 
-    inventory = player.get("inventory") or []
+    inventory = player.inventory
 
     # inventory full → nothing added
     if len(inventory) >= MAX_INVENTORY_SLOTS:
         return {
             "ok": False,
             "msg": "Your inventory is full. You leave any scraps you find behind.",
-            "player": player,
+            "player": player.to_dict(),
             "items": [],
             "credits_gained": 0,
         }
@@ -204,21 +150,17 @@ async def search(req: SearchRequest):
         if len(inventory) >= MAX_INVENTORY_SLOTS:
             break
         name, qty = random.choice(loot_table)
-        inventory.append({"name": name, "qty": qty})
+        player.inventory.append({"name": name, "qty": qty})
         found_items.append({"name": name, "qty": qty})
 
     # small credit bonus
     credits_gain = random.randint(5, 25)
-    credits = player.get("credits", 0) + credits_gain
-    player["credits"] = credits
-
-    player["inventory"] = inventory
-    session["player"] = player
+    player.credits += credits_gain
 
     return {
         "ok": True,
         "msg": "You scour the area and find some useful scraps.",
-        "player": player,
+        "player": player.to_dict(),
         "items": found_items,
         "credits_gained": credits_gain,
     }
@@ -227,13 +169,13 @@ async def search(req: SearchRequest):
 async def start_adventure(session_id: uuid.UUID = Query(...)):
     session = get_session(session_id)
 
-    player = session["player"]
+    player = session.player
 
     # simple 1–2 raiders
     enemy_count = random.randint(1, 2)
     enemies = []
     for i in range(enemy_count):
-        level = random.randint(player["level"], player["level"] + 1)
+        level = random.randint(player.level, player.level + 1)
         max_hp = 40 + level * 10
         enemies.append({
             "id": i,
@@ -246,14 +188,14 @@ async def start_adventure(session_id: uuid.UUID = Query(...)):
         })
 
     combat = {"enemies": enemies}
-    session["combat"] = combat
+    session.combat = combat
 
     # Pre-generate loot for this fight
     loot = [
         {"name": "Credits", "count": random.randint(20, 60)},
         {"name": "Scrap Alloy", "count": random.randint(1, 4)},
     ]
-    session["unclaimed_loot"] = loot
+    session.unclaimed_loot.extend(loot)
 
     return {
         "enemies": enemies,
@@ -268,8 +210,8 @@ async def attack_enemy(
 ):
     session = get_session(session_id)
 
-    player = session["player"]
-    combat = session.get("combat")
+    player = session.player
+    combat = session.combat
     if not combat:
         raise HTTPException(status_code=400, detail="No active combat")
 
@@ -300,7 +242,7 @@ async def attack_enemy(
         # Grant credit reward
         credit_reward = enemy.get("credit_reward", 0)
         if credit_reward > 0:
-            player["credits"] += credit_reward
+            player.credits += credit_reward
             events.append(f"You loot {credit_reward} credits from {enemy['name']}.")
         enemies.pop(target_index)
 
@@ -311,52 +253,49 @@ async def attack_enemy(
     if enemies:
         enemy = random.choice(enemies)
         edmg = random.randint(5, enemy["attack"])
-        player["health"] = max(0, player["health"] - edmg)
+        player.health = max(0, player.health - edmg)
         events.append(f"{enemy['name']} hits you for {edmg} damage.")
         
         # Check for player death
-        if player["health"] <= 0:
+        if player.health <= 0:
             return {
                 "events": events + ["You were defeated!"],
                 "combat_won": False,
                 "player_dead": True,
                 "enemies": enemies,
-                "player": player,
+                "player": player.to_dict(),
             }
     else:
         combat_won = True
-        session["combat"] = None
-        loot_to_send = session.get("unclaimed_loot", [])
+        session.combat = None
+        loot_to_send = session.unclaimed_loot
 
     return {
         "events": events,
         "combat_won": combat_won,
         "enemies": enemies,
         "loot": loot_to_send,
-        "player": player,
+        "player": player.to_dict(),
     }
 
 @router.post("/loot/claim")
 async def claim_loot(session_id: uuid.UUID = Query(...)):
     session = get_session(session_id)
 
-    player = session["player"]
-    loot = session.get("unclaimed_loot", [])
-
-    if "inventory" not in player or player["inventory"] is None:
-        player["inventory"] = []
+    player = session.player
+    loot = session.unclaimed_loot
 
     # Move loot into inventory
     for item in loot:
         if item["name"] == "Credits":
-            player["credits"] += item.get("count", 0)
+            player.credits += item.get("count", 0)
         else:
-            player["inventory"].append({
+            player.inventory.append({
                 "name": item["name"],
                 "count": item.get("count", 1),
             })
 
-    session["unclaimed_loot"] = []
+    session.unclaimed_loot.clear()
 
     return {
         "claimed": loot,
@@ -366,7 +305,7 @@ async def claim_loot(session_id: uuid.UUID = Query(...)):
 @router.post("/unlock")
 async def unlock_location(session_id: uuid.UUID = Query(...), location_id: str = Query(...)):
     session = get_session(session_id)
-    
+
     player = session["player"]
 
     # Example costs (Delta Base = 50 credits)
@@ -380,23 +319,16 @@ async def unlock_location(session_id: uuid.UUID = Query(...), location_id: str =
 
     cost = unlock_costs[location_id]
 
-    if player["credits"] < cost:
+    if player.credits < cost:
         return {"success": False, "message": "Not enough credits."}
 
     # Subtract credits
-    player["credits"] -= cost
+    player.credits -= cost
 
-    # Mark as unlocked
-    if "unlocked_locations" not in player:
-        player["unlocked_locations"] = []
-
-    player["unlocked_locations"].append(location_id)
+    player.unlocked_locations.append(location_id)
 
     return {
         "success": True,
         "message": f"Unlocked {location_id}!",
         "player": player
     }
-
-
-
