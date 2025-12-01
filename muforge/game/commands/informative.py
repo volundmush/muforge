@@ -17,3 +17,26 @@ class Look(Command):
         for entity in loc.contents:
             if entity.id != self.enactor.id:
                 await self.send_line(f"{entity.render_for_location_view(self.enactor)}")
+
+class Inventory(Command):
+    name = "inventory"
+    help_category = "Informative"
+
+    async def func(self):
+        if not (contents := self.enactor.get_inventory()):
+            raise self.Error("Your inventory is empty.")
+        await self.send_line("You are carrying:")
+        for item in contents:
+            await self.send_line(f"- {item.render_for_inventory_view(self.enactor)}")
+
+
+class Equipment(Command):
+    name = "equipment"
+    help_category = "Informative"
+
+    async def func(self):
+        if not (equipment := self.enactor.get_equipment()):
+            raise self.Error("You have no equipment equipped.")
+        await self.send_line("You're using the following equipment:")
+        for slot, item in equipment.items():
+            await self.send_line(f"{slot.capitalize()}: {item.render_for_inventory_view(self.enactor)}")

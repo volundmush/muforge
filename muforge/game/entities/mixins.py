@@ -3,13 +3,20 @@ import weakref
 class HasLocation:
 
     def __init__(self) -> None:
-        self.location: "None | weakref.ReferenceType[BaseLocation | Object | Structure | Character | NodeSchema | RoomSchema]" = None
+        self.location: "None | BaseLocation | Object | Structure | Character"
         self.location_data: dict = dict()
+    
+    async def move_to(self, new_location: "BaseLocation | Object | Structure | Character") -> None:
+        if self.location:
+            if self.location == new_location:
+                return
+            self.location.contents.remove(self)
+        self.location = new_location
+        new_location.contents.append(self)
 
-    def get_location(self) -> "None | BaseLocation | Object | Structure | Character | NodeSchema | RoomSchema":
-        if self.location and (loc := self.location()) is not None:
-            return loc
-        return None
+        for character in new_location.contents:
+            if character is not self:
+                await character.send_line(f"{self.get_display_name(character)} has arrived.")
 
 class HasInventory:
 

@@ -1,0 +1,35 @@
+[end_of_time]
+name = "The End of Time"
+desc = "Within a void of blended dark colors floats this lonely and forsaken piece of antiquated architeecture. A cobblestoned square platform hosting a single gas lamp post. Its light doesn't quite reach the wrought iron railings that ring the platform, the only thing preventing one from falling off into the void. To the north, broad and shallow steps lead up to a raised platform full of glowing portals... where and when might they lead?"
+
+[end_of_time.exits]
+arena = "arena"
+shop = "shop"
+inn = "inn"
+
+[arena]
+name = "Gladiator's Arena"
+desc = "You can CHALLENGE here."
+tags = ["challenge"]
+
+[arena.exits]
+back = "end_of_time"
+
+[shop]
+name = "Shop of Wonders"
+desc = "You can SHOP here."
+tags = ["shop]
+
+[shop.exits]
+back = "end_of_time"
+
+[shop.stock]
+
+
+[inn]
+name = "The Ruby Nu Inn"
+desc = "You can REST here."
+tags = ["rest]
+
+[inn.exits]
+back = "end_of_time"

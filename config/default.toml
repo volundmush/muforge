@@ -130,7 +130,6 @@ auth = "muforge.game.routers.auth:router"
 users = "muforge.game.routers.users:router"
 characters = "muforge.game.routers.characters:router"
 system = "muforge.game.routers.system:router"
-"api/game" = "muforge.game.routers.api_game:router"
 
 [game.commands]
 # These commands are imported by the entity system.
@@ -147,8 +146,3 @@ player = "muforge.game.entities.players:Player"
 npc = "muforge.game.entities.npcs:NPC"
 object = "muforge.game.entities.objects:Object"
 structure = "muforge.game.entities.structures:Structure"
-
-[game.data_schemas]
-attributes = {"field" = "ATTRIBUTES", "class" = "muforge.game.entities.characters:AttributeSchema"}
-nodes = {"field" = "NODES", "class" = "muforge.game.systems.locations:NodeSchema"}
-rooms = {"field" = "ROOMS", "class" = "muforge.game.systems.locations:RoomSchema"}

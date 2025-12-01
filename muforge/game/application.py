@@ -1,7 +1,4 @@
 import muforge
-import importlib
-import asyncpg
-import orjson
 import asyncio
 import tomllib
 
@@ -18,15 +15,6 @@ from hypercorn.asyncio import serve
 from muforge.shared.application import Application as OldApplication
 from muforge.shared.utils import callables_from_module, property_from_module
 
-async def init_connection(conn: asyncpg.Connection):
-    await conn.set_type_codec(
-        "jsonb",  # The PostgreSQL type to target.
-        encoder=lambda v: orjson.dumps(v).decode("utf-8"),
-        decoder=lambda data: orjson.loads(data),
-        schema="pg_catalog",
-        format="text",
-    )
-
 
 class Application(OldApplication):
     name = "game"
@@ -41,11 +29,6 @@ class Application(OldApplication):
             for name, command in callables_from_module(v).items():
                 muforge.GAME_COMMANDS[command.name] = command
                 muforge.GAME_COMMANDS_PRIORITY[command.priority].append(command)
-
-    async def setup_asyncpg(self):
-        settings = muforge.SETTINGS["POSTGRESQL"]
-        pool = await asyncpg.create_pool(init=init_connection, **settings)
-        muforge.PGPOOL = pool
 
     async def setup_fastapi(self):
         settings = muforge.SETTINGS
@@ -113,33 +96,8 @@ class Application(OldApplication):
             muforge.LOCKPARSER = parser
 
     async def setup_game_data(self):
-        data_path = Path.cwd() / "data"
-        schemas = muforge.SETTINGS["GAME"].get("data_schemas", dict())
-        for dir_name, v in schemas.items():
-            data_dir = data_path / dir_name
-            # if it exists, grab all .toml files and load them.
-            if not data_dir.exists():
-                continue
-            
-            schema_classes = dict()
-            def get_schema_classes(module_path: str):
-                if (found := schema_classes.get(module_path, None)) is not None:
-                    return found
-                cls = property_from_module(module_path)
-                schema_classes[module_path] = cls
-                return cls
-
-            # for each .toml file:
-            for path in data_dir.glob("*.toml"):
-                data = None
-                with path.open("rb") as f:
-                    data = tomllib.load(f)
-                cls = get_schema_classes(v['class'])
-                obj = cls(**data)
-                if not isinstance(getattr(muforge, v['field'], None), dict):
-                    setattr(muforge, v['field'], dict())
-                store = getattr(muforge, v['field'])
-                store[obj.id] = obj
+        path = Path.cwd() / "data"
+        
     
     async def setup_typeclasses(self):
         typeclasses = muforge.SETTINGS["GAME"].get("typeclasses", dict())
@@ -148,14 +106,12 @@ class Application(OldApplication):
             muforge.ENTITY_CLASSES[k] = cls
 
     async def setup_load_database(self):
-        async with muforge.PGPOOL.acquire() as conn:
-            pass
+        pass
 
     async def setup(self):
         await super().setup()
         await self.setup_game_data()
         await self.setup_lark()
-        await self.setup_asyncpg()
         await self.setup_fastapi()
         await self.setup_typeclasses()
 
@@ -173,32 +129,6 @@ class Application(OldApplication):
         
         await self.setup_load_database()
 
-    async def handle_postgre_notification(self, conn, pid, channel, payload):
-        decoded = orjson.loads(payload)
-        args = [decoded["table"], decoded["id"]]
-
-        if not (listeners := muforge.LISTENERS_TABLE.get(decoded["table"], [])):
-            return
-
-        match decoded["operation"]:
-            case "UPDATE":
-                for listener in listeners:
-                    await listener.on_update(*args)
-            case "INSERT":
-                for listener in listeners:
-                    await listener.on_insert(*args)
-            case "DELETE":
-                for listener in listeners:
-                    await listener.on_delete(*args)
-
-    async def postgre_listener(self):
-        async with muforge.PGPOOL.acquire() as conn:
-            await conn.add_listener("table_changes", self.handle_postgre_notification)
-            while True:
-                try:
-                    await asyncio.sleep(10)
-                except asyncio.CancelledError:
-                    break
 
     async def system_pinger(self):
         from muforge.shared.events.system import SystemPing
@@ -213,5 +143,5 @@ class Application(OldApplication):
 
     async def start(self):
         self.task_group.create_task(serve(self.fastapi_instance, self.fastapi_config))
-        self.task_group.create_task(self.postgre_listener())
+        #self.task_group.create_task(self.postgre_listener())
         self.task_group.create_task(self.system_pinger())
