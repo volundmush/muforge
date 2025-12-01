@@ -76,14 +76,15 @@ class Application(OldApplication):
             allow_headers=["*"],
         )
 
-        static_dir = Path() / "static"
-        app.mount("/static", StaticFiles(directory="static"), name="static")
+        cwd = Path.cwd()
+        static_dir = cwd / "static"
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
         def render_index() -> HTMLResponse:
-            index_path = static_dir / "index.html"
+            index_path = cwd / "index.html"
             if not index_path.exists():
                 return HTMLResponse(
-                    "<h1>Muforge Web UI</h1><p>Put index.html in mutemplate/static/</p>",
+                    "<h1>Muforge Web UI</h1><p>Put index.html in muforge/</p>",
                     status_code=404,
                 )
             return HTMLResponse(index_path.read_text(encoding="utf-8"))
