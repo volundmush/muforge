@@ -97,7 +97,19 @@ class Application(OldApplication):
 
     async def setup_game_data(self):
         path = Path.cwd() / "data"
-        
+
+        locations_path = path / "locations.toml"
+        if locations_path.exists():
+            with open(locations_path, "rb") as f:
+                data = tomllib.load(f)
+                loc_class = muforge.CLASSES["location"]
+                for k, v in data.items():
+                    muforge.LOCATIONS[k] = loc_class(id=k, **v)
+
+        objects_path = path / "objects.toml"
+        if objects_path.exists():
+            with open(objects_path, "rb") as f:
+                data = tomllib.load(f)
     
     async def setup_typeclasses(self):
         typeclasses = muforge.SETTINGS["GAME"].get("typeclasses", dict())

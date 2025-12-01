@@ -11,6 +11,7 @@ class UserModel(SoftDeleteMixin):
     id: uuid.UUID
     email: pydantic.EmailStr
     email_confirmed_at: Optional[datetime]
+    password: pydantic.SecretStr
     display_name: optional_name_line
     admin_level: int
 

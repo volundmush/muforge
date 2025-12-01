@@ -95,8 +95,10 @@ system = "muforge.portal.commands.system"
 help = "muforge.portal.commands.help"
 
 [events]
-system = "muforge.events.system"
-characters = "muforge.events.characters"
+system = "muforge.shared.events.system"
+characters = "muforge.shared.events.characters"
+messages = "muforge.shared.events.messages"
+
 
 [game.classes]
 # The key-values here are used to fill the muforge.CLASSES dictionary
@@ -106,11 +108,8 @@ characters = "muforge.events.characters"
 
 # The class that'll be used to handle the game.
 application = "muforge.game.application:Application"
-
-# extra classes added in patel's branch
-node_loader = "muforge.loader:registry"
-command_handler = "muforge.engine:run_player_command"
-state_provider = "muforge.engine:get_player_state"
+session = "muforge.game.systems.sessions:Session"
+location = "muforge.game.systems.locations:Location"
 
 [game.lockfuncs]
 # The key is only used for overrides or disables. It loads all functions defined

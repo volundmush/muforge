@@ -21,11 +21,11 @@ PORTAL_COMMANDS_PRIORITY = defaultdict(list)
 GAME_COMMANDS = dict()
 GAME_COMMANDS_PRIORITY = defaultdict(list)
 
-LOCATIONS: dict[uuid.UUID, "LocationSchema"] = dict()
+LOCATIONS: dict[str, "Location"] = dict()
 LOCATION_CLASSES = dict()
 LOCATION_COMPONENTS = dict()
 
-USERS: dict[uuid.UUID, "User"] = dict()
+USERS: dict[uuid.UUID, "UserModel"] = dict()
 
 ENTITIES: dict[uuid.UUID, "BaseEntity"] = dict()
 ENTITY_CLASSES = dict()

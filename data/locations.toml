@@ -18,18 +18,18 @@ back = "end_of_time"
 [shop]
 name = "Shop of Wonders"
 desc = "You can SHOP here."
-tags = ["shop]
+tags = ["shop"]
 
 [shop.exits]
 back = "end_of_time"
 
 [shop.stock]
-
+boo = "rawr"
 
 [inn]
 name = "The Ruby Nu Inn"
 desc = "You can REST here."
-tags = ["rest]
+tags = ["rest"]
 
 [inn.exits]
 back = "end_of_time"

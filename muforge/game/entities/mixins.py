@@ -3,7 +3,7 @@ import weakref
 class HasLocation:
 
     def __init__(self) -> None:
-        self.location: "None | BaseLocation | Object | Structure | Character"
+        self.location: "None | BaseLocation | Object | Structure | Character" = None
         self.location_data: dict = dict()
     
     async def move_to(self, new_location: "BaseLocation | Object | Structure | Character") -> None:

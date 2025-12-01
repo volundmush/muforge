@@ -64,14 +64,13 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> Use
             raise credentials_exception
     except jwt.PyJWTError as e:
         raise credentials_exception
-
-    async with muforge.PGPOOL.acquire() as conn:
-        user = await conn.fetchrow("SELECT * FROM users WHERE id = $1", user_id)
+    
+    user = muforge.USERS.get(uuid.UUID(user_id), None)
 
     if user is None:
         raise credentials_exception
 
-    return UserModel(**user)
+    return user
 
 
 async def get_acting_character(user: UserModel, character_id: uuid.UUID) -> ActiveAs:

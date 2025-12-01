@@ -3,7 +3,7 @@ from typing import Annotated
 import pydantic
 
 from rich.text import Text
-from rich.markup import MarkupError
+from rich.errors import MarkupError
 from fastapi import APIRouter, Depends, Body, HTTPException, Request
 
 from .utils import (
