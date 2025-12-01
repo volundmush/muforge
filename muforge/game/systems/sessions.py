@@ -6,23 +6,53 @@ from datetime import datetime, timezone
 
 class Session:
 
-    def __init__(self, pc: "PlayerCharacter", hub):
+    def __init__(self, pc: "PlayerCharacter"):
         self.pc = pc
         self.puppet = pc
-        self.hub = hub
         self.created_at = datetime.now(timezone.utc)
         self.last_active_at = datetime.now(timezone.utc)
+        self.subscriptions: list[asyncio.Queue] = []
+        self.active = True
     
     async def send_event(self, event) -> None:
-        await self.hub.send(self.pc.id, event)
+        for q in self.subscriptions:
+            await q.put(event)
 
-    def active_character(self):
-        return self.puppet if self.is_switched() else self.pc
+    def send_event_nowait(self, event) -> None:
+        for q in self.subscriptions:
+            q.put_nowait(event)
 
     def is_switched(self) -> bool:
-        return self.pc is not self.puppet
+        return self.puppet is not self.pc
     
-    async def execute_command(self, command: str) -> None:
-        target = self.active_character()
+    async def execute_command(self, command: str) -> None | dict:
         self.last_active_at = datetime.now(timezone.utc)
-        await target.execute_command(command)
+        return await self.puppet.execute_command(command)
+    
+    def subscribe(self, character_id: uuid.UUID) -> asyncio.Queue:
+        """Create a new queue for this character and add it to the subscription list."""
+        q = asyncio.Queue()
+        self.subscriptions.append(q)
+        return q
+    
+    def unsubscribe(self, q: asyncio.Queue):
+        """Remove the given queue from this session's subscription list."""
+        try:
+            self.subscriptions.remove(q)
+        except ValueError:
+            pass
+    
+    async def start(self):
+        """
+        Start the session. Should do login things.
+
+        """
+        self.active = True
+
+    async def stop_local(self):
+        for q in self.subscriptions:
+            await q.put(None)
+
+    async def stop(self, graceful: bool = True):
+        if not self.active:
+            return

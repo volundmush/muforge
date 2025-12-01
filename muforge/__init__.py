@@ -1,5 +1,6 @@
 from collections import defaultdict
 import uuid
+import typing
 
 SETTINGS = dict()
 APP = None
@@ -23,6 +24,8 @@ GAME_COMMANDS_PRIORITY = defaultdict(list)
 LOCATIONS: dict[uuid.UUID, "LocationSchema"] = dict()
 LOCATION_CLASSES = dict()
 LOCATION_COMPONENTS = dict()
+
+USERS: dict[uuid.UUID, "User"] = dict()
 
 ENTITIES: dict[uuid.UUID, "BaseEntity"] = dict()
 ENTITY_CLASSES = dict()

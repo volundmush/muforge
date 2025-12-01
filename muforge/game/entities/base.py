@@ -112,3 +112,15 @@ class BaseEntity:
     async def send_event(self, event) -> None:
         if self.session:
             await self.session.send_event(event)
+    
+    def register_entity(self):
+        muforge.ENTITIES[self.id] = self
+        for idx in self.entity_indexes:
+            muforge.ENTITY_TYPE_INDEX[idx].add(self)
+    
+    def unregister_entity(self):
+        if self.id in muforge.ENTITIES:
+            del muforge.ENTITIES[self.id]
+        for idx in self.entity_indexes:
+            if self in muforge.ENTITY_TYPE_INDEX[idx]:
+                muforge.ENTITY_TYPE_INDEX[idx].remove(self)

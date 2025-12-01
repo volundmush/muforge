@@ -84,8 +84,6 @@ CREATE TABLE entities (
     id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
     entity_class VARCHAR(100) NOT NULL,
-    entity_type VARCHAR(15) NOT NULL,
-    entity_family VARCHAR(15) NOT NULL,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     data JSONB NOT NULL DEFAULT '{}'::jsonb
@@ -99,6 +97,11 @@ CREATE TABLE characters
     last_active_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     name           CITEXT    NOT NULL
 );
+
+CREATE VIEW character_view AS
+SELECT e.*,c.user_id,c.last_active_at
+FROM characters c
+         JOIN entities e ON c.id = e.id;
 
 CREATE UNIQUE INDEX unique_character_name ON characters (name);
 

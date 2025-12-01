@@ -17,7 +17,6 @@ from hypercorn.asyncio import serve
 
 from muforge.shared.application import Application as OldApplication
 from muforge.shared.utils import callables_from_module, property_from_module
-from muforge.game.systems.events import EventHub
 
 async def init_connection(conn: asyncpg.Connection):
     await conn.set_type_codec(
@@ -140,15 +139,24 @@ class Application(OldApplication):
                     setattr(muforge, v['field'], dict())
                 store = getattr(muforge, v['field'])
                 store[obj.id] = obj
-            
+    
+    async def setup_typeclasses(self):
+        typeclasses = muforge.SETTINGS["GAME"].get("typeclasses", dict())
+        for k, v in typeclasses.items():
+            cls = property_from_module(v)
+            muforge.ENTITY_CLASSES[k] = cls
+
+    async def setup_load_database(self):
+        async with muforge.PGPOOL.acquire() as conn:
+            pass
 
     async def setup(self):
         await super().setup()
-        muforge.EVENT_HUB = EventHub()
         await self.setup_game_data()
         await self.setup_lark()
         await self.setup_asyncpg()
         await self.setup_fastapi()
+        await self.setup_typeclasses()
 
         for k, v in muforge.SETTINGS["GAME"].get("lockfuncs", dict()).items():
             lock_funcs = callables_from_module(v)
@@ -161,6 +169,8 @@ class Application(OldApplication):
             muforge.LISTENERS[k] = listener
             for table in listener.tables:
                 muforge.LISTENERS_TABLE[table].append(listener)
+        
+        await self.setup_load_database()
 
     async def handle_postgre_notification(self, conn, pid, channel, payload):
         decoded = orjson.loads(payload)
@@ -194,7 +204,8 @@ class Application(OldApplication):
 
         try:
             while True:
-                await muforge.EVENT_HUB.broadcast(SystemPing())
+                for k, v in muforge.SESSIONS.items():
+                    await v.send_event(SystemPing())
                 await asyncio.sleep(15)
         except asyncio.CancelledError:
             return

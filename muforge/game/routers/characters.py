@@ -55,18 +55,28 @@ async def stream_character_events(
     # We don't use it; but this verifies that user can control character.
     acting = await get_acting_character(user, character_id)
 
+    character = muforge.ENTITIES.get(character_id)
+    started = False
+    if not (session := muforge.SESSIONS.get(character_id, None)):
+        session_class = muforge.CLASSES["session"]
+        session = session_class(character)
+        muforge.SESSIONS[character_id] = session
+        started = True
+
     async def event_generator():
-        queue = muforge.EVENT_HUB.subscribe(character_id)
+        queue = session.subscribe()
         graceful = False
         try:
+            if started:
+                await session.start()
             # blocks until a new event
             while item := await queue.get():
                 yield f"event: {item.__class__.__name__}\ndata: {item.model_dump_json()}\n\n"
             graceful = True
         finally:
-            muforge.EVENT_HUB.unsubscribe(character_id, queue)
-            if not graceful:
-                pass  # this can do something later.
+            session.unsubscribe(queue)
+            if not session.subscriptions and session.active:
+                await session.stop(graceful=graceful)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

@@ -1,5 +1,6 @@
 import pydantic
 from typing import Optional
+import typing
 import uuid
 from datetime import datetime
 
@@ -12,3 +13,6 @@ class UserModel(SoftDeleteMixin):
     email_confirmed_at: Optional[datetime]
     display_name: optional_name_line
     admin_level: int
+
+    characters: dict[uuid.UUID, typing.Any] = pydantic.Field(default_factory=dict, exclude=True)  # Placeholder for CharacterModel list
+    sessions: dict[uuid.UUID, typing.Any] = pydantic.Field(default_factory=dict, exclude=True)  # Placeholder for SessionModel dict
