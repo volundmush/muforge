@@ -19,8 +19,6 @@ class Session:
         self.combat = None
         self.unclaimed_loot = list()
 
-
-    
     async def send_event(self, event) -> None:
         for q in self.subscriptions:
             await q.put(event)

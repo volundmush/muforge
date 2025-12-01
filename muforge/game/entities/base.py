@@ -74,7 +74,7 @@ class BaseEntity:
             if command.check_match(self, cmd):
                 return command
     
-    async def handle_command(self, event: str) -> dict:
+    async def execute_command(self, event: str) -> dict:
 
         try:
             if not (match_data := CMD_MATCH.match(event)):

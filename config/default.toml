@@ -139,6 +139,7 @@ system = "muforge.game.routers.system:router"
 #system = "muforge.game.commands.system"
 help = "muforge.game.commands.help"
 comm = "muforge.game.commands.comm"
+informative = "muforge.game.commmands.informative"
 
 [game.typeclasses]
 # used for the entity system.
