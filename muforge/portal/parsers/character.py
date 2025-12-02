@@ -108,22 +108,18 @@ class CharacterParser(BaseParser):
             return
 
         try:
-            if not (match_data := CMD_MATCH.match(event)):
-                raise ValueError(f"Huh? (Type 'help' for help)")
-            # regex match_data.groupdict() returns a dictionary of all the named groups
-            # and their values. Missing groups are None. That's silly. We'll filter it out.
-            match_dict = {
-                k: v for k, v in match_data.groupdict().items() if v is not None
-            }
-            cmd_key = match_dict.get("cmd")
-            if not (cmd := self.match_command(cmd_key.lower())):
-                raise ValueError(f"Huh? (Type 'help' for help)")
-            command = cmd(self, cmd_key, match_dict)
-            await command.execute()
+            result = await self.api_call("POST", f"/characters/{self.active.character.id}/command", json={"command": event})
         except MarkupError as e:
             await self.send_rich(f"[bold red]Error parsing markup:[/] {escape(str(e))}")
         except ValueError as error:
             await self.send_line(f"{error}")
+        except HTTPStatusError as e:
+            if e.response.status_code == 401:
+                await self.send_line("You have been disconnected.")
+                await self.connection.pop_parser()
+                return
+            logger.exception("HTTP error in handle_command: %s")
+            await self.send_line("An error occurred. Please contact staff.")
         except Exception as error:
             if self.active.user.admin_level >= 1:
                 await self.send_line(f"An error occurred: {error}")

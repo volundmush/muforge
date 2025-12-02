@@ -42,6 +42,6 @@ class ColumnMessage(EventBase):
     async def handle_event(self, conn: "BaseConnection"):
         cols = list()
         for title, items in self.data:
-            col = Columns(items, title=title, padding=(self.padding_min, self.padding_max))
+            col = Columns(items, title=title, padding=(self.padding_min, self.padding_max), expand=True)
             cols.append(col)
         await conn.send_rich(Group(*cols))

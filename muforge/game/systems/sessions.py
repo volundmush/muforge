@@ -16,6 +16,7 @@ class Session:
         self.last_active_at = datetime.now(timezone.utc)
         self.subscriptions: list[asyncio.Queue] = []
         self.active = True
+        self.user = muforge.USERS.get(pc.user_id)
 
     async def send_event(self, event) -> None:
         for q in self.subscriptions:

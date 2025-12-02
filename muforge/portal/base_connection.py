@@ -7,7 +7,8 @@ from datetime import datetime
 from httpx import AsyncClient, HTTPStatusError, Limits
 from loguru import logger
 from rich.console import Console
-from rich.markup import MarkupError, escape
+from rich.errors import MarkupError
+from rich.markup import escape
 from rich.table import Table
 from rich.box import ASCII2
 from httpx_sse import aconnect_sse
@@ -380,7 +381,7 @@ class BaseConnection:
                 params=query,
                 json=json,
                 data=data,
-                headers=use_headers,
+                headers=use_headers
             )
             # Raise an exception if the status code indicates an error.
             response.raise_for_status()
@@ -390,6 +391,9 @@ class BaseConnection:
                 f"HTTP error on {method} {path}: {exc.response.status_code} {exc.response.text}"
             )
             # Optionally, handle the error (for example, re-raise or return a default value)
+            raise
+        except Exception as exc:
+            logger.error(f"Error during API call {method} {path}: {str(exc)}")
             raise
 
     async def api_stream(

@@ -27,3 +27,4 @@ class Go(Command):
         # Here you would add the logic to move the character in the specified direction.
         await self.send_line(f"You go {choice}.")
         await self.enactor.move_to(new_loc)
+        await self.enactor.execute_command("look")

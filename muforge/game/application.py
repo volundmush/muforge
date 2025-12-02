@@ -125,6 +125,7 @@ class Application(OldApplication):
         await self.setup_game_data()
         await self.setup_lark()
         await self.setup_fastapi()
+        await self.setup_commands()
         await self.setup_typeclasses()
 
         for k, v in muforge.SETTINGS["GAME"].get("lockfuncs", dict()).items():

@@ -70,13 +70,13 @@ game_url = "https://127.0.0.1:8000"
 # classes you want to be used for X purposes.
 
 # The class that'll be used to handle the portal.
-application = "muforge.portal.application.Application"
+application = "muforge.portal.application:Application"
 # The class that'll be used to handle the portal's telnet/ssh connections.
 # it inherits from muforge.portal.base_connection.BaseConnection
 # so anything that wants to change the behavior of the connection
 # should inherit from telnet.
 telnet_connection = "muforge.portal.telnet:TelnetConnection"
-ssh_connection = "muforge.portal.ssh.SSHConnection"
+ssh_connection = "muforge.portal.ssh:SSHConnection"
 # The parsers that interpret user commands at different states.
 login_parser = "muforge.portal.parsers.login:LoginParser"
 user_parser = "muforge.portal.parsers.user:UserParser"
@@ -137,7 +137,8 @@ system = "muforge.game.routers.system:router"
 #system = "muforge.game.commands.system"
 help = "muforge.game.commands.help"
 comm = "muforge.game.commands.comm"
-informative = "muforge.game.commmands.informative"
+informative = "muforge.game.commands.informative"
+movement = "muforge.game.commands.movement"
 
 [game.typeclasses]
 # used for the entity system.

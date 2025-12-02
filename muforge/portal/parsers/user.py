@@ -32,9 +32,12 @@ class UserParser(BaseParser):
             return
         js_data = {"name": args}
         try:
-            character_data = await self.api_call("POST", "/characters", json=js_data)
+            character_data = await self.api_call("POST", "/characters/", json=js_data)
         except HTTPStatusError as e:
             await self.send_line(f"Error creating character: {e.response.text}")
+            return
+        except Exception as e:
+            await self.send_line(f"An unknown error occurred: {str(e)}")
             return
         character = CharacterModel(**character_data)
         await self.handle_look()

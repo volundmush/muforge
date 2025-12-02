@@ -87,7 +87,7 @@ class BaseEntity:
             cmd_key = match_dict.get("cmd")
             if not (cmd := self.match_command(cmd_key.lower())):
                 raise ValueError(f"Huh? (Type 'help' for help)")
-            command = cmd(self, cmd_key, match_dict)
+            command = cmd(cmd_key, match_dict, self)
             result = await command.execute()
             return result or {"ok": True}
         except ValueError as error:

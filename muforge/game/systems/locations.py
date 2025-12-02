@@ -13,3 +13,5 @@ class Location(BaseModel):
     def get_neighbors(self, target: "BaseEntity") -> list["BaseEntity"]:
         return [x for x in self.contents if x is not target]
 
+    def __str__(self) -> str:
+        return self.name
