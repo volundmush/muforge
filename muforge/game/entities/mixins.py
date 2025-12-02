@@ -7,16 +7,21 @@ class HasLocation:
         self.location_data: dict = dict()
     
     async def move_to(self, new_location: "BaseLocation | Object | Structure | Character") -> None:
+        old_location = None
         if self.location:
             if self.location == new_location:
                 return
+            old_location = self.location
             self.location.contents.remove(self)
+            for character in self.location.contents:
+                if character is not self:
+                    await character.send_line(f"{self.get_display_name(character)} heads to {new_location}.")
         self.location = new_location
         new_location.contents.append(self)
 
         for character in new_location.contents:
             if character is not self:
-                await character.send_line(f"{self.get_display_name(character)} has arrived.")
+                await character.send_line(f"{self.get_display_name(character)} has arrived from {old_location if old_location else 'somewhere unknown'}.")
 
 class HasInventory:
 
