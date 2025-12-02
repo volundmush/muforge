@@ -2,41 +2,1475 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Muforge Web Client</title>
-    <link rel="stylesheet" href="static/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terra MUD - Galaxy Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+            
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #00ffff;
+            overflow: hidden;
+            height: 100vh;
+        }
+            
+        .space-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, #1a0033 0%, #000000 100%);
+            z-index: 0;
+        }
+            
+        .stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            animation: moveStars 100s linear infinite;
+        }
+            
+        @keyframes moveStars {
+            from { transform: translateY(0); }
+            to { transform: translateY(-2000px); }
+        }
+            
+        .game-container {
+            position: relative;
+            z-index: 1;
+            height: 100vh;
+            display: grid;
+            grid-template-rows: 100px 1fr 180px;
+        }
+            
+        .header {
+            background: linear-gradient(180deg, rgba(10, 0, 30, 0.95), rgba(20, 0, 40, 0.8));
+            border-bottom: 3px solid #ff00ff;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+            
+        .player-info {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+            
+        .player-avatar {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #ff00ff, #00ffff);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.8);
+            animation: pulse 2s ease-in-out infinite;
+        }
+            
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 30px rgba(255, 0, 255, 0.8); }
+            50% { box-shadow: 0 0 50px rgba(0, 255, 255, 0.8); }
+        }
+            
+        .stat {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+            
+        .stat-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+            
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+            
+        .hp-bar-container {
+            width: 250px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ffff;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+            
+        .hp-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00ffff);
+            transition: width 0.5s ease;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+        }
+            
+        .hp-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 10px black;
+            z-index: 2;
+        }
+
+        /* Attack bar (derived stat) */
+        .atk-bar-container {
+            width: 220px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #ff00ff;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .atk-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff00ff, #00ffff);
+            transition: width 0.4s ease;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.8);
+        }
+
+        .atk-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 13px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 10px black;
+            z-index: 2;
+        }
+            
+        .main-content {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            height: 100%;
+        }
+            
+        .map-panel {
+            background: linear-gradient(90deg, rgba(10, 0, 30, 0.95), rgba(20, 0, 40, 0.7));
+            border-right: 3px solid #00ffff;
+            padding: 25px;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+        }
+            
+        .map-title {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #00ffff;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(0, 255, 255, 0.3);
+        }
+            
+        .galaxy-container {
+            perspective: 1200px;
+            margin: 30px 0;
+            display: flex;
+            justify-content: center;
+            min-height: 450px;
+        }
+            
+        .galaxy-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            transform-style: preserve-3d;
+            transform: rotateX(25deg) rotateZ(-10deg);
+            padding: 20px;
+        }
+            
+        .galaxy-tile {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, rgba(0, 20, 60, 0.4), rgba(0, 10, 30, 0.6));
+            border: 2px solid rgba(0, 255, 255, 0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.4s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: rgba(0, 255, 255, 0.4);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+            
+        .galaxy-tile:hover {
+            transform: translateZ(30px) scale(1.15);
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.6);
+            border-color: #00ffff;
+        }
+            
+        .galaxy-tile.home {
+            background: radial-gradient(circle, rgba(0, 255, 255, 0.6), rgba(0, 150, 200, 0.4));
+            border: 3px solid #00ffff;
+            font-size: 20px;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.9);
+            animation: homePulse 2s ease-in-out infinite;
+        }
+            
+        @keyframes homePulse {
+            0%, 100% { box-shadow: 0 0 40px rgba(0, 255, 255, 0.9); }
+            50% { box-shadow: 0 0 60px rgba(0, 255, 255, 1); }
+        }
+            
+        .galaxy-tile.shop {
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.6), rgba(255, 165, 0, 0.4));
+            border: 3px solid #ffd700;
+            font-size: 20px;
+            box-shadow: 0 0 40px rgba(255, 215, 0, 0.8);
+            animation: shopPulse 2s ease-in-out infinite;
+        }
+            
+        @keyframes shopPulse {
+            0%, 100% { box-shadow: 0 0 40px rgba(255, 215, 0, 0.8); }
+            50% { box-shadow: 0 0 60px rgba(255, 215, 0, 1); }
+        }
+            
+        .galaxy-tile.shop.locked {
+            background: radial-gradient(circle, rgba(100, 100, 100, 0.4), rgba(60, 60, 60, 0.3));
+            border: 3px solid #666;
+            box-shadow: 0 0 20px rgba(100, 100, 100, 0.5);
+            cursor: not-allowed;
+            animation: none;
+        }
+            
+        .galaxy-tile.exploration {
+            background: radial-gradient(circle, rgba(255, 0, 255, 0.5), rgba(150, 0, 150, 0.3));
+            border: 2px solid rgba(255, 0, 255, 0.5);
+            font-size: 16px;
+        }
+            
+        .galaxy-tile.current {
+            background: linear-gradient(135deg, #ff00ff, #00ffff);
+            color: #fff;
+            font-weight: bold;
+            border: 3px solid #fff;
+            box-shadow: 0 0 50px rgba(255, 0, 255, 1);
+            animation: currentGlow 1.5s ease-in-out infinite;
+            transform: translateZ(40px) scale(1.2);
+        }
+            
+        @keyframes currentGlow {
+            0%, 100% { box-shadow: 0 0 50px rgba(255, 0, 255, 1); }
+            50% { box-shadow: 0 0 70px rgba(255, 0, 255, 1); }
+        }
+            
+        .planet-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            color: #00ffff;
+            white-space: nowrap;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.8);
+            pointer-events: none;
+        }
+            
+        .shop-label {
+            color: #ffd700;
+        }
+            
+        .content-panel {
+            background: linear-gradient(180deg, rgba(20, 0, 40, 0.8), rgba(10, 0, 30, 0.95));
+            padding: 40px;
+            overflow-y: auto;
+            position: relative;
+        }
+            
+        .location-visual {
+            position: relative;
+            height: 250px;
+            background: linear-gradient(135deg, rgba(100, 0, 150, 0.3), rgba(0, 100, 150, 0.3));
+            border-radius: 20px;
+            margin-bottom: 30px;
+            overflow: hidden;
+            border: 3px solid rgba(0, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+            
+        .location-planet {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #00ffff, #0088aa, #003344);
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.5);
+            animation: rotate 20s linear infinite;
+        }
+            
+        .location-shop {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #ffd700, #ffaa00, #cc8800);
+            box-shadow: 0 0 50px rgba(255, 215, 0, 0.7);
+            animation: rotate 20s linear infinite;
+        }
+            
+        .location-exploration {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #ff00ff, #cc00cc, #990099);
+            box-shadow: 0 0 50px rgba(255, 0, 255, 0.7);
+            animation: rotate 20s linear infinite;
+        }
+            
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+            
+        .location-header {
+            font-size: 42px;
+            color: #fff;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.6);
+            text-align: center;
+            z-index: 1;
+            position: relative;
+        }
+            
+        .location-desc {
+            font-size: 16px;
+            color: #aaa;
+            margin-bottom: 30px;
+            line-height: 1.8;
+            text-align: center;
+            z-index: 1;
+            position: relative;
+        }
+            
+        .action-buttons {
+            display: flex;
+            gap: 20px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+            z-index: 1;
+            position: relative;
+        }
+            
+        .action-btn {
+            padding: 18px 35px;
+            background: linear-gradient(135deg, #ff00ff, #cc00cc);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-family: inherit;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 5px 20px rgba(255, 0, 255, 0.5);
+        }
+            
+        .action-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(255, 0, 255, 0.8);
+        }
+            
+        .action-btn.secondary {
+            background: linear-gradient(135deg, #00ffff, #00cccc);
+            box-shadow: 0 5px 20px rgba(0, 255, 255, 0.5);
+        }
+        
+        .action-btn.btn-disabled,
+        .action-btn:disabled {
+            background: linear-gradient(135deg, #666, #444);
+            color: #888;
+            cursor: not-allowed;
+            opacity: 0.6;
+            box-shadow: none;
+        }
+        
+        .action-btn.btn-disabled:hover,
+        .action-btn:disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
+            
+        .shop-screen, .combat-screen, .loot-screen {
+            display: none;
+            position: relative;
+            z-index: 1;
+        }
+            
+        .shop-screen.active, .combat-screen.active, .loot-screen.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+            
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+            
+        .shop-title {
+            font-size: 32px;
+            color: #ffd700;
+            margin-bottom: 30px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+        }
+            
+        .shop-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+            
+        .shop-item {
+            background: linear-gradient(135deg, rgba(100, 80, 0, 0.4), rgba(60, 50, 0, 0.6));
+            border: 3px solid #ffd700;
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s;
+        }
+            
+        .shop-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px rgba(255, 215, 0, 0.7);
+        }
+            
+        .shop-item-icon {
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+            
+        .shop-item-name {
+            font-size: 18px;
+            color: #ffd700;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+            
+        .shop-item-desc {
+            font-size: 13px;
+            color: #aaa;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+            
+        .shop-item-price {
+            font-size: 20px;
+            color: #fff;
+            text-align: center;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+            
+        .buy-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            border: none;
+            border-radius: 8px;
+            color: #000;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+            
+        .buy-btn:hover {
+            background: linear-gradient(135deg, #ffee00, #ffd700);
+        }
+            
+        .buy-btn:disabled {
+            background: linear-gradient(135deg, #666, #444);
+            color: #888;
+            cursor: not-allowed;
+        }
+            
+        .combat-title {
+            font-size: 32px;
+            color: #ff0000;
+            margin-bottom: 30px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+        }
+            
+        .enemies-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+            
+        .enemy-card {
+            background: linear-gradient(135deg, rgba(100, 0, 0, 0.6), rgba(60, 0, 0, 0.8));
+            border: 3px solid #ff0000;
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s;
+        }
+            
+        .enemy-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 40px rgba(255, 0, 0, 0.7);
+        }
+            
+        .enemy-card.dead {
+            opacity: 0;
+            transform: scale(0.5);
+            pointer-events: none;
+        }
+            
+        .enemy-card.hit {
+            animation: shake 0.5s;
+        }
+            
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-15px); }
+            75% { transform: translateX(15px); }
+        }
+            
+        .enemy-avatar {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: radial-gradient(circle, #ff0000, #cc0000);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.8);
+        }
+            
+        .enemy-name {
+            font-size: 20px;
+            color: #ff6666;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+            
+        .enemy-stats {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 15px;
+        }
+            
+        .enemy-hp-bar {
+            width: 100%;
+            height: 25px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #ff0000;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+            
+        .enemy-hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #ff6666);
+            transition: width 0.5s ease;
+        }
+            
+        .attack-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #ff0000, #cc0000);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-family: inherit;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 16px;
+        }
+            
+        .loot-title {
+            font-size: 36px;
+            color: #ffff00;
+            margin-bottom: 30px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(255, 255, 0, 0.8);
+        }
+            
+        .loot-items {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            margin: 40px 0;
+            flex-wrap: wrap;
+        }
+            
+        .loot-item {
+            background: linear-gradient(135deg, rgba(100, 100, 0, 0.4), rgba(60, 60, 0, 0.6));
+            border: 3px solid #ffff00;
+            border-radius: 15px;
+            padding: 25px;
+            min-width: 140px;
+            animation: lootPop 0.6s;
+        }
+            
+        @keyframes lootPop {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+            
+        .loot-item-icon {
+            font-size: 40px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+            
+        .loot-item-name {
+            font-size: 16px;
+            color: #ffff00;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+            
+        .loot-item-amount {
+            font-size: 24px;
+            color: #fff;
+            text-align: center;
+            font-weight: bold;
+        }
+            
+        .bottom-panel {
+            background: linear-gradient(0deg, rgba(10, 0, 30, 0.95), rgba(20, 0, 40, 0.8));
+            border-top: 3px solid #00ffff;
+            padding: 20px 40px;
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+            
+        .inventory-section {
+            flex: 1;
+        }
+        
+        .inventory-header {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+        
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+        }
+        
+        .inv-slot {
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, rgba(0, 50, 100, 0.4), rgba(0, 20, 60, 0.6));
+            border: 3px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            padding: 10px;
+        }
+        
+        .inv-slot:hover {
+            transform: translateY(-8px) scale(1.05);
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.6);
+            border-color: #00ffff;
+        }
+        
+        .inv-slot.filled {
+            background: linear-gradient(135deg, rgba(0, 100, 150, 0.6), rgba(0, 50, 100, 0.8));
+            border-color: #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+        
+        .inv-slot.filled:hover {
+            border-color: #ff00ff;
+            box-shadow: 0 10px 40px rgba(255, 0, 255, 0.6);
+        }
+        
+        .inv-slot.usable:hover {
+            border-color: #00ff00;
+            box-shadow: 0 10px 40px rgba(0, 255, 0, 0.6);
+        }
+        
+        .inv-slot-icon {
+            font-size: 48px;
+            margin-bottom: 5px;
+            filter: drop-shadow(0 0 5px rgba(0, 255, 255, 0.5));
+        }
+        
+        .inv-slot-count {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            font-size: 16px;
+            color: #ffff00;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 3px 8px;
+            border-radius: 5px;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+        }
+        
+        .inv-slot-name {
+            font-size: 10px;
+            color: #aaa;
+            text-align: center;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .inv-slot.empty .inv-slot-name {
+            color: #444;
+        }
+        
+        .use-indicator {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(0, 255, 0, 0.8);
+            color: #000;
+            font-size: 9px;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+            text-transform: uppercase;
+            display: none;
+            animation: blink 1.5s infinite;
+        }
+        
+        .inv-slot.usable .use-indicator {
+            display: block;
+        }
+
+        .item-uses-bar {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            right: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .item-uses-fill {
+            height: 100%;
+            background: linear-gradient(to right, #00ff88, #00ffff);
+            width: 100%; /* will be overridden inline */
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        
+        .item-tooltip {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #00ffff;
+            border-radius: 8px;
+            padding: 15px;
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 250px;
+            display: none;
+        }
+        
+        .item-tooltip.active {
+            display: block;
+        }
+        
+        .tooltip-name {
+            font-size: 16px;
+            color: #00ffff;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        
+        .tooltip-desc {
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        
+        .tooltip-action {
+            font-size: 12px;
+            color: #00ff00;
+            font-style: italic;
+        }
+            
+        .message-log {
+            flex: 1.5;
+            max-height: 120px;
+            overflow-y: auto;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            border: 2px solid rgba(0, 255, 255, 0.2);
+            font-size: 13px;
+            color: #aaa;
+        }
+            
+        .message {
+            margin: 8px 0;
+            padding: 8px 12px;
+            border-left: 3px solid #00ffff;
+            background: rgba(0, 255, 255, 0.05);
+            border-radius: 3px;
+            animation: slideIn 0.3s;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+            
+        .message.combat {
+            border-left-color: #ff0000;
+            background: rgba(255, 0, 0, 0.05);
+            color: #ff6666;
+        }
+            
+        .message.loot {
+            border-left-color: #ffff00;
+            background: rgba(255, 255, 0, 0.05);
+            color: #ffff66;
+        }
+            
+        .message.system {
+            border-left-color: #ff00ff;
+            background: rgba(255, 0, 255, 0.05);
+            color: #ff66ff;
+        }
+            
+        .message.error {
+            border-left-color: #ff3333;
+            background: rgba(255, 51, 51, 0.1);
+            color: #ff6666;
+        }
+        
+        .message.success {
+            border-left-color: #00ff00;
+            background: rgba(0, 255, 0, 0.05);
+            color: #00ff88;
+        }
+        
+        .message.use {
+            border-left-color: #ffff00;
+            background: rgba(255, 255, 0, 0.05);
+            color: #ffff66;
+        }
+
+        /* ===================== */
+        /* PLAYER CHAT SYSTEM    */
+        /* ===================== */
+        .chat-toggle-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #ff00ff, #00ffff);
+            border: 3px solid #00ffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            cursor: pointer;
+            z-index: 200;
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.6);
+            transition: all 0.3s;
+            user-select: none;
+        }
+
+        .chat-toggle-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 50px rgba(255, 0, 255, 0.9);
+        }
+
+        .chat-notification {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ff4444;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #000;
+        }
+
+        .chat-container {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            width: 380px;
+            height: 450px;
+            background: linear-gradient(180deg, rgba(20, 0, 50, 0.98), rgba(10, 0, 30, 0.98));
+            border: 3px solid #ff00ff;
+            border-radius: 20px;
+            display: none;
+            flex-direction: column;
+            z-index: 200;
+            box-shadow: 0 0 40px rgba(255, 0, 255, 0.5);
+            overflow: hidden;
+        }
+
+        .chat-container.open {
+            display: flex;
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: linear-gradient(90deg, rgba(255, 0, 255, 0.3), rgba(0, 255, 255, 0.3));
+            border-bottom: 2px solid #ff00ff;
+            color: #00ffff;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        .chat-close-btn {
+            background: none;
+            border: none;
+            color: #ff4444;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 5px 10px;
+            transition: all 0.3s;
+        }
+
+        .chat-close-btn:hover {
+            color: #ff6666;
+            transform: scale(1.2);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .chat-message {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-message.own {
+            align-items: flex-end;
+        }
+
+        .chat-message.other {
+            align-items: flex-start;
+        }
+
+        .chat-message.system {
+            align-items: center;
+        }
+
+        .chat-bubble {
+            max-width: 85%;
+            padding: 10px 15px;
+            border-radius: 15px;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .chat-message.own .chat-bubble {
+            background: linear-gradient(135deg, #ff00ff, #cc00cc);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .chat-message.other .chat-bubble {
+            background: rgba(0, 255, 255, 0.2);
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            color: #00ffff;
+            border-bottom-left-radius: 5px;
+        }
+
+        .chat-message.system .chat-bubble {
+            background: rgba(100, 100, 100, 0.3);
+            color: #888;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .chat-sender {
+            font-weight: bold;
+            color: #ff00ff;
+            margin-right: 5px;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            border-top: 2px solid rgba(0, 255, 255, 0.3);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 12px 15px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            color: #00ffff;
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .chat-input-area input:focus {
+            border-color: #ff00ff;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.3);
+        }
+
+        .chat-input-area input::placeholder {
+            color: #555;
+        }
+
+        .chat-input-area button {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #ff00ff, #00ffff);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .chat-input-area button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+        }
+
+        /* Plasma Blaster repair modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1500;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-dialog {
+            background: linear-gradient(135deg, #140022, #240034);
+            border: 2px solid #00ffff;
+            border-radius: 14px;
+            width: 420px;
+            max-width: 90%;
+            padding: 20px 24px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+            font-size: 14px;
+        }
+
+        .modal-title {
+            font-size: 16px;
+            color: #00ffff;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .modal-body {
+            color: #ccc;
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .modal-btn {
+            padding: 8px 14px;
+            border-radius: 6px;
+            border: none;
+            font-family: inherit;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .modal-btn-primary {
+            background: linear-gradient(135deg, #00ffff, #00aa88);
+            color: #000;
+        }
+
+        .modal-btn-secondary {
+            background: transparent;
+            border: 1px solid #888;
+            color: #ddd;
+        }
+
+        /* ===================== */
+        /* OVERLAY & MODALS      */
+        /* ===================== */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+        }
+
+        .overlay.hidden {
+            display: none;
+        }
+
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 101;
+            background: linear-gradient(180deg, rgba(20, 0, 50, 0.98), rgba(10, 0, 30, 0.98));
+            border: 3px solid #ff00ff;
+            border-radius: 20px;
+            padding: 40px;
+            min-width: 400px;
+            max-width: 500px;
+            box-shadow: 0 0 60px rgba(255, 0, 255, 0.5), inset 0 0 30px rgba(0, 255, 255, 0.1);
+        }
+
+        .modal.hidden {
+            display: none;
+        }
+
+        .modal-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .modal-header h1 {
+            font-size: 28px;
+            color: #00ffff;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            margin-bottom: 10px;
+        }
+
+        .modal-header p {
+            color: #888;
+            font-size: 14px;
+        }
+
+        .modal-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            color: #888;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .tab-btn:hover {
+            border-color: #00ffff;
+            color: #00ffff;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(255, 0, 255, 0.2));
+            border-color: #ff00ff;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .auth-form.hidden {
+            display: none;
+        }
+
+        .auth-form label {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .auth-form label span {
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .auth-form input {
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            color: #00ffff;
+            font-family: inherit;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .auth-form input:focus {
+            outline: none;
+            border-color: #ff00ff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+        }
+
+        .auth-form input::placeholder {
+            color: #555;
+        }
+
+        .primary-btn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #ff00ff, #00ffff);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+        }
+
+        .primary-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 0 40px rgba(255, 0, 255, 0.8);
+        }
+
+        .primary-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .form-hint {
+            text-align: center;
+            font-size: 13px;
+            color: #888;
+            min-height: 20px;
+            margin-top: 15px;
+        }
+
+        .form-hint[data-variant="error"] {
+            color: #ff4444;
+        }
+
+        .form-hint[data-variant="success"] {
+            color: #00ff88;
+        }
+
+        .form-hint[data-variant="info"] {
+            color: #00ffff;
+        }
+
+        /* Character List */
+        .character-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 25px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .character-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            text-align: left;
+            font-family: inherit;
+            color: inherit;
+        }
+
+        .character-row:hover {
+            border-color: #ff00ff;
+            background: rgba(255, 0, 255, 0.1);
+        }
+
+        .character-row.active {
+            border-color: #00ffff;
+            background: rgba(0, 255, 255, 0.15);
+        }
+
+        .character-name {
+            font-size: 18px;
+            color: #00ffff;
+            font-weight: bold;
+        }
+
+        .character-meta {
+            font-size: 11px;
+            color: #666;
+            display: block;
+            margin-top: 4px;
+        }
+
+        .character-play {
+            color: #ff00ff;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Connection Status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .connection-status.online {
+            background: rgba(0, 255, 136, 0.2);
+            border: 1px solid #00ff88;
+            color: #00ff88;
+        }
+
+        .connection-status.offline {
+            background: rgba(255, 68, 68, 0.2);
+            border: 1px solid #ff4444;
+            color: #ff4444;
+        }
+
+        .connection-status.connecting {
+            background: rgba(255, 170, 0, 0.2);
+            border: 1px solid #ffaa00;
+            color: #ffaa00;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0.5; }
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            background: transparent;
+            border: 2px solid #ff4444;
+            border-radius: 8px;
+            color: #ff4444;
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 68, 68, 0.2);
+        }
+    </style>
 </head>
 <body>
-    <div id="app" class="app-shell">
-        <header class="app-header">
-            <div class="brand">
-                <span class="brand-dot"></span>
-                <span>Muforge Client</span>
-            </div>
-            <div class="header-controls">
-                <span id="connectionStatus" class="status-pill offline">Offline</span>
-                <button id="logoutBtn" class="ghost-btn" type="button" hidden>Log out</button>
-            </div>
-        </header>
-        <main class="main-layout" aria-live="polite">
-            <section id="eventStream" class="event-stream">
-                <div class="event-line system">Welcome to the forge. Log in to begin.</div>
-            </section>
-            <form id="commandForm" class="command-form" autocomplete="off">
-                <label class="sr-only" for="commandInput">Command input</label>
-                <input id="commandInput" name="command" placeholder="Enter command (look, say hi, help)..." disabled>
-                <button type="submit" class="primary-btn" disabled>Send</button>
-            </form>
-        </main>
-    </div>
+    <!-- ===================== -->
+    <!-- OVERLAY & MODALS      -->
+    <!-- ===================== -->
+    <div id="overlay" class="overlay hidden"></div>
 
-    <div id="overlay" class="overlay hidden" aria-hidden="true"></div>
-
-    <section id="authModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <!-- Auth Modal (Login/Register) -->
+    <section id="authModal" class="modal hidden" role="dialog" aria-modal="true">
         <div class="modal-body">
             <header class="modal-header">
-                <h1 id="authTitle">Welcome back</h1>
-                <p>Sign in or create an account to continue.</p>
+                <h1 id="authTitle">⚡ TERRA MUD ⚡</h1>
+                <p>Sign in or create an account to explore the galaxy</p>
             </header>
             <div class="modal-tabs" role="tablist">
                 <button type="button" class="tab-btn active" data-auth-tab="login">Log in</button>
@@ -45,22 +1479,22 @@
             <form id="loginForm" class="auth-form" data-auth-form="login">
                 <label>
                     <span>Email</span>
-                    <input name="email" type="email" autocomplete="email" required>
+                    <input name="email" type="email" autocomplete="email" required placeholder="explorer@terra.space">
                 </label>
                 <label>
                     <span>Password</span>
-                    <input name="password" type="password" autocomplete="current-password" required>
+                    <input name="password" type="password" autocomplete="current-password" required placeholder="••••••••">
                 </label>
                 <button type="submit" class="primary-btn">Log in</button>
             </form>
             <form id="registerForm" class="auth-form hidden" data-auth-form="register">
                 <label>
                     <span>Email</span>
-                    <input name="email" type="email" autocomplete="email" required>
+                    <input name="email" type="email" autocomplete="email" required placeholder="explorer@terra.space">
                 </label>
                 <label>
                     <span>Password</span>
-                    <input name="password" type="password" autocomplete="new-password" required>
+                    <input name="password" type="password" autocomplete="new-password" required placeholder="••••••••">
                 </label>
                 <button type="submit" class="primary-btn">Create account</button>
             </form>
@@ -68,34 +1502,1536 @@
         </div>
     </section>
 
-    <section id="characterModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="characterTitle">
+    <!-- Character Selection Modal -->
+    <section id="characterModal" class="modal hidden" role="dialog" aria-modal="true">
         <div class="modal-body">
             <header class="modal-header">
-                <h1 id="characterTitle">Choose your character</h1>
-                <p>Select an existing adventurer or forge a new one.</p>
+                <h1>Choose Your Pilot</h1>
+                <p>Select an existing character or create a new one</p>
             </header>
             <div class="character-list" role="list" id="characterList"></div>
             <p class="form-hint" id="characterHint"></p>
-            <form id="characterForm" class="auth-form" data-create-character>
+            <form id="characterForm" class="auth-form">
                 <label>
                     <span>Character name</span>
-                    <input name="name" placeholder="E.g. Cipher" minlength="3" maxlength="24" required>
+                    <input name="name" placeholder="E.g. StarRunner" minlength="3" maxlength="24" required>
                 </label>
-                <button type="submit" class="primary-btn">Create &amp; play</button>
+                <button type="submit" class="primary-btn">Create &amp; Play</button>
             </form>
         </div>
     </section>
 
+    <!-- Character Row Template -->
     <template id="characterRowTemplate">
         <button type="button" class="character-row" data-character-id="">
             <div>
                 <span class="character-name"></span>
                 <span class="character-meta"></span>
             </div>
-            <span class="character-play">Play</span>
+            <span class="character-play">▶ PLAY</span>
         </button>
     </template>
 
-    <script type="module" src="static/app.js"></script>
-</body>
-</html>
+    <div class="space-bg">
+        <div class="stars" id="stars"></div>
+    </div>
+    <div class="game-container">
+        <div class="header">
+            <div class="player-info">
+                <div class="player-avatar">🚀</div>
+                <div class="stat">
+                    <div class="stat-label">Health</div>
+                    <div class="hp-bar-container">
+                        <div class="hp-bar-fill" id="hpBar" style="width: 100%"></div>
+                        <div class="hp-text" id="hpText">100 / 100</div>
+                    </div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Credits</div>
+                    <div class="stat-value" id="credits">0</div>
+                </div>
+
+                <!-- 🔥 NEW: Attack bar -->
+                <div class="stat">
+                    <div class="stat-label">Attack</div>
+                    <div class="atk-bar-container">
+                        <div class="atk-bar-fill" id="atkBar" style="width: 30%"></div>
+                        <div class="atk-text" id="atkText">10</div>
+                    </div>
+                </div>
+
+                <div class="stat">
+                    <div class="stat-label">Pilot</div>
+                    <div class="stat-value" id="playerName">---</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Location</div>
+                    <div class="stat-value" id="currentLocation">Terra</div>
+                </div>
+            </div>
+            <div class="header-controls" style="display: flex; gap: 15px; align-items: center;">
+                <span id="connectionStatus" class="connection-status offline">Offline</span>
+                <button id="logoutBtn" class="logout-btn" style="display: none;">Logout</button>
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="map-panel">
+                <div class="map-title">⬡ GALAXY MAP ⬡</div>
+                <div class="galaxy-container">
+                    <div class="galaxy-grid" id="galaxyGrid"></div>
+                </div>
+            </div>
+            <div class="content-panel">
+                <div id="locationView">
+                    <div class="location-visual" id="locationVisual">
+                        <div class="location-planet"></div>
+                    </div>
+                    <div class="location-header" id="locationName">TERRA</div>
+                    <div class="location-desc" id="locationDesc">The home planet. Your journey begins here.</div>
+                    <div class="action-buttons">
+                        <button class="action-btn" onclick="startAdventure()">⚔ ADVENTURE</button>
+                        <button class="action-btn secondary" onclick="searchArea()">🔍 SEARCH</button>
+                    </div>
+                </div>
+                <div class="shop-screen" id="shopView">
+                    <div class="shop-title">🛍 GALACTIC MARKETPLACE 🛍</div>
+                    <div class="shop-items" id="shopItems"></div>
+                    <button class="action-btn secondary" onclick="exitShop()">← LEAVE SHOP</button>
+                </div>
+                <div class="combat-screen" id="combatView">
+                    <div class="combat-title">⚔ COMBAT ENCOUNTER ⚔</div>
+                    <div class="enemies-container" id="enemiesContainer"></div>
+                </div>
+                <div class="loot-screen" id="lootView">
+                    <div class="loot-title">✦ VICTORY! ✦</div>
+                    <div class="loot-items" id="lootItems"></div>
+                    <div class="loot-actions" style="display: flex; gap: 20px; justify-content: center; margin-top: 30px;">
+                        <button class="action-btn" id="collectLootBtn" onclick="collectLoot()">COLLECT LOOT</button>
+                        <button class="action-btn secondary" id="leaveLootBtn" onclick="leaveLoot()">LEAVE LOOT</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="bottom-panel">
+            <div class="inventory-section">
+                <div class="inventory-header">⬡ Inventory - Click to Use ⬡</div>
+                <div class="inventory-grid" id="inventoryGrid"></div>
+            </div>
+            <div class="message-log" id="messageLog">
+                <div class="message system">◈ Welcome to Terra MUD. Click planets to travel!</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="item-tooltip" id="tooltip">
+        <div class="tooltip-name" id="tooltipName"></div>
+        <div class="tooltip-desc" id="tooltipDesc"></div>
+        <div class="tooltip-action" id="tooltipAction"></div>
+    </div>
+    
+    <!-- ===================== -->
+    <!-- PLAYER CHAT SYSTEM    -->
+    <!-- ===================== -->
+    <div id="chatToggleBtn" class="chat-toggle-btn">
+        💬
+        <span id="chatNotification" class="chat-notification">0</span>
+    </div>
+
+    <div id="chatContainer" class="chat-container">
+        <div class="chat-header">
+            <span>💬 GLOBAL CHAT</span>
+            <button id="chatCloseBtn" class="chat-close-btn">✕</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-message system">
+                <div class="chat-bubble">Welcome to global chat! Say hi to other explorers.</div>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" placeholder="Type a message..." maxlength="200">
+            <button id="chatSendBtn">SEND</button>
+        </div>
+    </div>
+
+    <!-- Plasma Blaster repair choice modal -->
+    <div class="modal-overlay" id="blasterModal">
+        <div class="modal-dialog">
+            <div class="modal-title">Plasma Blaster Damage</div>
+            <div class="modal-body">
+                Your Plasma Blaster is about to break on this adventure.<br><br>
+                Use a <strong>Nano Repair Kit</strong> to fully repair it,
+                or continue and let it break after this run.
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-secondary"
+                        onclick="skipBlasterRepairAndAdventure()">
+                    Let it break
+                </button>
+                <button class="modal-btn modal-btn-primary"
+                        onclick="confirmBlasterRepairAndAdventure()">
+                    Use Repair Kit
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        // =====================
+        // API CONFIGURATION
+        // =====================
+        const MUFORGE_URL = "";
+        const GAME_API_URL = "http://192.168.1.3:8001";
+
+        // Session ID for mutemplate
+        let gameSessionId = null;
+
+        // =====================
+        // AUTH & CONNECTION
+        // =====================
+        import { ApiClient } from './static/api.js';
+        import { EventSwitchboard, CharacterEventStream } from './static/events.js';
+
+        const api = new ApiClient(MUFORGE_URL);
+        const switchboard = new EventSwitchboard();
+
+        const authState = {
+            characters: [],
+            activeCharacter: null,
+            stream: null,
+        };
+
+        // DOM Elements for auth
+        const authDom = {
+            overlay: document.getElementById('overlay'),
+            authModal: document.getElementById('authModal'),
+            characterModal: document.getElementById('characterModal'),
+            loginForm: document.getElementById('loginForm'),
+            registerForm: document.getElementById('registerForm'),
+            authTabs: document.querySelectorAll('[data-auth-tab]'),
+            authHint: document.getElementById('authHint'),
+            characterHint: document.getElementById('characterHint'),
+            characterList: document.getElementById('characterList'),
+            characterForm: document.getElementById('characterForm'),
+            logoutBtn: document.getElementById('logoutBtn'),
+            connectionStatus: document.getElementById('connectionStatus'),
+            gameContainer: document.querySelector('.game-container'),
+        };
+
+        // Modal helpers
+        function showModal(modal) {
+            modal.classList.remove('hidden');
+            authDom.overlay.classList.remove('hidden');
+        }
+
+        function hideModal(modal) {
+            modal.classList.add('hidden');
+            authDom.overlay.classList.add('hidden');
+        }
+
+        function setHint(element, message, variant = 'info') {
+            element.textContent = message ?? '';
+            element.dataset.variant = variant;
+        }
+
+        function lockForm(form, locked) {
+            Array.from(form.elements).forEach(el => el.disabled = locked);
+        }
+
+        function setConnectionState(state) {
+            const el = authDom.connectionStatus;
+            el.classList.remove('online', 'offline', 'connecting');
+            el.classList.add(state);
+            el.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+        }
+
+        function renderCharacterList(characters, activeId) {
+            const target = authDom.characterList;
+            target.innerHTML = '';
+            if (!characters.length) {
+                target.innerHTML = '<p class="form-hint">No characters yet. Create one below.</p>';
+                return;
+            }
+            const template = document.getElementById('characterRowTemplate');
+            characters.forEach(character => {
+                const node = template.content.firstElementChild.cloneNode(true);
+                node.dataset.characterId = character.id;
+                node.querySelector('.character-name').textContent = character.name;
+                node.querySelector('.character-meta').textContent = character.created_at
+                    ? new Date(character.created_at).toLocaleString()
+                    : 'Ready to play';
+                if (character.id === activeId) node.classList.add('active');
+                target.appendChild(node);
+            });
+        }
+
+        // Wire up auth tabs
+        authDom.authTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                authDom.authTabs.forEach(btn => btn.classList.toggle('active', btn === tab));
+                const mode = tab.dataset.authTab;
+                authDom.loginForm.classList.toggle('hidden', mode !== 'login');
+                authDom.registerForm.classList.toggle('hidden', mode !== 'register');
+            });
+        });
+
+        // Wire up login/register forms
+        [authDom.loginForm, authDom.registerForm].forEach(form => {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const mode = form.dataset.authForm;
+                const formData = new FormData(form);
+                const email = String(formData.get('email')).trim();
+                const password = String(formData.get('password'));
+
+                if (!email || !password) {
+                    setHint(authDom.authHint, 'Email and password are required.', 'error');
+                    return;
+                }
+
+                lockForm(form, true);
+                setHint(authDom.authHint, mode === 'login' ? 'Signing in...' : 'Creating account...', 'info');
+
+                try {
+                    if (mode === 'login') {
+                        await api.login(email, password);
+                    } else {
+                        await api.register(email, password);
+                    }
+                    form.reset();
+                    await handleAuthenticated();
+                } catch (error) {
+                    setHint(authDom.authHint, error.message, 'error');
+                } finally {
+                    lockForm(form, false);
+                }
+            });
+        });
+
+        // Wire up character selection
+        authDom.characterList.addEventListener('click', (e) => {
+            const button = e.target.closest('[data-character-id]');
+            if (!button) return;
+            const characterId = button.dataset.characterId;
+            const character = authState.characters.find(c => c.id === characterId);
+            if (character) activateCharacter(character);
+        });
+
+        // Wire up character creation
+        authDom.characterForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = String(new FormData(e.currentTarget).get('name')).trim();
+            if (!name) {
+                setHint(authDom.characterHint, 'Name is required.', 'error');
+                return;
+            }
+
+            lockForm(authDom.characterForm, true);
+            setHint(authDom.characterHint, 'Creating character...', 'info');
+
+            try {
+                const created = await api.createCharacter(name);
+                authState.characters = [...authState.characters, created];
+                renderCharacterList(authState.characters, created.id);
+                setHint(authDom.characterHint, `Created ${created.name}!`, 'success');
+                authDom.characterForm.reset();
+                await activateCharacter(created);
+            } catch (error) {
+                setHint(authDom.characterHint, error.message, 'error');
+            } finally {
+                lockForm(authDom.characterForm, false);
+            }
+        });
+
+        // Wire up logout
+        authDom.logoutBtn.addEventListener('click', () => {
+            api.clearTokens();
+            authState.activeCharacter = null;
+            authState.stream?.stop();
+            authState.stream = null;
+            authState.characters = [];
+            authDom.logoutBtn.style.display = 'none';
+            authDom.gameContainer.classList.add('hidden');
+            setConnectionState('offline');
+            addMessage('Signed out.', 'system');
+            showModal(authDom.authModal);
+            setHint(authDom.authHint, 'Session ended. Please sign in again.', 'info');
+        });
+
+        async function handleAuthenticated() {
+            authDom.logoutBtn.style.display = 'block';
+            hideModal(authDom.authModal);
+            await loadCharacters();
+            showModal(authDom.characterModal);
+        }
+
+        async function loadCharacters() {
+            setHint(authDom.characterHint, 'Loading characters...', 'info');
+            try {
+                authState.characters = await api.getCharacters();
+                renderCharacterList(authState.characters, authState.activeCharacter?.id ?? null);
+                if (!authState.characters.length) {
+                    setHint(authDom.characterHint, 'Create your first character to begin.', 'info');
+                } else {
+                    setHint(authDom.characterHint, 'Choose a character or create a new one.', 'info');
+                }
+            } catch (error) {
+                setHint(authDom.characterHint, error.message, 'error');
+            }
+        }
+
+        async function activateCharacter(character) {
+            authState.activeCharacter = character;
+            renderCharacterList(authState.characters, character.id);
+            hideModal(authDom.characterModal);
+
+            // Show game UI
+            authDom.gameContainer.classList.remove('hidden');
+
+            // Update player name display
+            document.getElementById('playerName').textContent = character.name;
+
+            addMessage(`Now playing as ${character.name}.`, 'system');
+
+            // Connect to muforge event stream (for chat)
+            connectEventStream();
+
+            // Connect to mutemplate game server
+            try {
+                const res = await fetch(`${GAME_API_URL}/api/game/start`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        player_name: character.name
+                    })
+                });
+                const data = await res.json();
+                gameSessionId = data.session_id;
+                console.log("Game session started:", gameSessionId);
+                
+                // Load game state
+                await loadGameState();
+                renderGalaxyMap();
+            } catch (err) {
+                console.error("Failed to connect to game server:", err);
+                addMessage("Game server connection failed. Some features may not work.", "error");
+            }
+        }
+
+        function connectEventStream() {
+            authState.stream?.stop();
+            if (!authState.activeCharacter) return;
+
+            const url = `/characters/${authState.activeCharacter.id}/events`;
+            authState.stream = new CharacterEventStream({
+                url,
+                tokenProvider: () => api.accessToken,
+                dispatcher: switchboard,
+                onStatus: handleStreamStatus,
+            });
+            authState.stream.start();
+        }
+
+        function handleStreamStatus(status, error) {
+            if (status === 'open') {
+                setConnectionState('online');
+            } else if (status === 'connecting') {
+                setConnectionState('connecting');
+            } else if (status === 'error') {
+                setConnectionState('connecting');
+                if (error) addMessage(`Connection error: ${error.message}`, 'error');
+            } else if (status === 'closed' || status === 'offline') {
+                setConnectionState(authState.activeCharacter ? 'connecting' : 'offline');
+            }
+        }
+
+        // Register event handlers for server events
+        switchboard.on('Text', ({ payload }) => {
+            if (payload?.message) addMessage(payload.message, 'system');
+        });
+
+        switchboard.on('Line', ({ payload }) => {
+            if (payload?.message) addMessage(payload.message, 'system');
+        });
+
+
+        // Auth initialization
+        function initAuth() {
+            // Hide game container initially
+            authDom.gameContainer.classList.add('hidden');
+
+            if (api.hasTokens()) {
+                handleAuthenticated();
+            } else {
+                showModal(authDom.authModal);
+                setHint(authDom.authHint, 'Sign in to explore the galaxy.', 'info');
+            }
+        }
+
+        // =====================
+        // CONFIG + GLOBAL STATE
+        // =====================
+        // Note: gameSessionId is defined above in API CONFIGURATION section
+        // API_URL is replaced by GAME_API_URL
+        const GALAXY_SIZE = 7;
+        const MAX_INVENTORY_SLOTS = 6;
+        const HOME_PLANET_POS = { x: 3, y: 3 };
+        const SHOP_PLANET_POS = { x: 5, y: 2 };
+        const SHOP_COST_REQUIREMENT = 50;
+        const BASE_ATTACK_POWER = 10;
+        const EXPLORATION_PLANETS = [
+            { x: 1, y: 1, name: "Alpha Station" },
+            { x: 5, y: 5, name: "Beta Outpost" },
+            { x: 2, y: 5, name: "Gamma Colony" },
+            { x: 6, y: 3, name: "Delta Base" }
+        ];
+        const SHOP_INVENTORY = [
+            { name: "Medpack", icon: "💊", price: 30, desc: "Restores 50 HP" },
+            { name: "Energy Shield", icon: "🛡️", price: 100, desc: "Increases max HP" },
+            { name: "Plasma Blaster", icon: "🔫", price: 150, desc: "Increases attack" },
+            { name: "Nano Repair Kit", icon: "🔧", price: 40, desc: "Repairs equipment" },
+            { name: "Fusion Core", icon: "⚡", price: 200, desc: "Energy source" },
+            { name: "Scanner Upgrade", icon: "🔡", price: 80, desc: "Find more items" }
+        ];
+
+        // ITEM DATABASE - Define what each item does
+        const ITEM_DATABASE = {
+            'Medpack': {
+                icon: '💊',
+                type: 'consumable',
+                effect: 'heal',
+                value: 50,
+                desc: 'Restores 50 HP instantly'
+            },
+            'Energy Cell': {
+                icon: '🔋',
+                type: 'consumable',
+                effect: 'heal',
+                value: 25,
+                desc: 'Restores 25 HP'
+            },
+            'Charge Cell': {
+                icon: '🔋',
+                type: 'consumable',
+                effect: 'heal',
+                value: 25,
+                desc: 'Restores 25 HP'
+            },
+            'Scrap': {
+                icon: '📩',
+                type: 'material',
+                effect: null,
+                desc: 'Stackable up to 64. Can be deposited in shop for 2 credits each.'
+            },
+            'Iron Scrap': {
+                icon: '📩',
+                type: 'material',
+                effect: null,
+                desc: 'Stackable up to 64. Can be deposited in shop for 5 credits each.'
+            },
+            'Scrap Alloy': {
+                icon: '📩',
+                type: 'material',
+                effect: null,
+                desc: 'Deprecated material – not currently used.'
+            },
+            'Plasma Blaster': {
+                icon: '🔫',
+                type: 'weapon',
+                effect: 'equip',
+                value: 25,
+                desc: 'Single-use weapon: while in your inventory, attack +25. Using it destroys the blaster.'
+            },
+            'Blaster': {
+                icon: '🔫',
+                type: 'weapon',
+                effect: 'equip',
+                value: 20,
+                desc: 'Equip to increase attack damage'
+            },
+            'Weapon': {
+                icon: '🔫',
+                type: 'weapon',
+                effect: 'equip',
+                value: 15,
+                desc: 'Equip to increase attack damage'
+            },
+            'Energy Shield': {
+                icon: '🛡️',
+                type: 'armor',
+                effect: 'equip',
+                value: 20,
+                desc: 'Equip to increase max HP by 20'
+            },
+            'Armor': {
+                icon: '🛡️',
+                type: 'armor',
+                effect: 'equip',
+                value: 15,
+                desc: 'Equip to increase max HP'
+            },
+            'Nano Repair Kit': {
+                icon: '🔧',
+                type: 'consumable',
+                effect: 'heal',
+                value: 30,
+                desc: 'Repairs suit and restores 30 HP'
+            },
+            'Fusion Core': {
+                icon: '⚡',
+                type: 'material',
+                effect: null,
+                desc: 'Energy source. Cannot be used directly.'
+            },
+            'Scanner Upgrade': {
+                icon: '🔡',
+                type: 'upgrade',
+                effect: 'equip',
+                value: 10,
+                desc: 'Equip to find more items'
+            },
+            'Credits': {
+                icon: '💰',
+                type: 'currency',
+                effect: null,
+                desc: 'Currency. Cannot be used directly.'
+            }
+        };
+
+        // Items that can be clicked/used
+        const USABLE_ITEMS = Object.keys(ITEM_DATABASE).filter(name => ITEM_DATABASE[name].effect !== null);
+
+        let gameState = {
+            player: {
+                health: 100,
+                maxHealth: 100,
+                credits: 0,
+                inventory: [],
+                position: { ...HOME_PLANET_POS }
+            },
+            currentLocation: {
+                id: "home",
+                name: "Terra",
+                type: "home",
+                desc: "The home planet. Your journey begins here."
+            },
+            combat: null,
+            loot: null
+        };
+
+        // =====================
+        // INIT + SESSION
+        // =====================
+        async function init() {
+            createStars();
+            // Session creation is now handled in activateCharacter()
+            // This function is called after character selection
+            updateUI();
+            updateLocationVisual();
+        }
+
+        async function loadGameState() {
+            if (!gameSessionId) return;
+            try {
+                const res = await fetch(`${GAME_API_URL}/api/game/state?session_id=${gameSessionId}`);
+                const data = await res.json();
+            const p = data.player;
+            const node = data.node;
+            gameState.player.health = p.health;
+            gameState.player.maxHealth = p.max_health;
+            gameState.player.credits = p.credits;
+            gameState.player.inventory = p.inventory || [];
+            gameState.currentLocation.name = node.name;
+            gameState.currentLocation.desc = node.desc;
+            gameState.combat = data.combat;
+            gameState.loot = data.loot ? { items: data.loot } : null;
+            updateUI();
+            } catch (err) {
+                console.error("Failed to load game state:", err);
+            }
+        }
+
+        // =====================
+        // STARS + GALAXY MAP
+        // =====================
+        function createStars() {
+            const c = document.getElementById('stars');
+            for (let i = 0; i < 100; i++) {
+                const s = document.createElement('div');
+                s.style.cssText = `position:absolute;width:2px;height:2px;background:white;border-radius:50%;left:${Math.random() * 100}%;top:${Math.random() * 100}%;opacity:${Math.random() * 0.8 + 0.2};`;
+                c.appendChild(s);
+            }
+        }
+
+        function renderGalaxyMap() {
+            const grid = document.getElementById('galaxyGrid');
+            grid.innerHTML = '';
+            for (let y = 0; y < GALAXY_SIZE; y++) {
+                for (let x = 0; x < GALAXY_SIZE; x++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'galaxy-tile';
+                    if (x === HOME_PLANET_POS.x && y === HOME_PLANET_POS.y) {
+                        tile.classList.add('home');
+                        tile.textContent = '🌎';
+                        tile.onclick = () => travelToPlanet(x, y, 'home');
+                        const l = document.createElement('div');
+                        l.className = 'planet-label';
+                        l.textContent = 'TERRA';
+                        tile.appendChild(l);
+                    } else if (x === SHOP_PLANET_POS.x && y === SHOP_PLANET_POS.y) {
+                        tile.classList.add('shop');
+                        const hasCredits = gameState.player.credits >= SHOP_COST_REQUIREMENT;
+                        if (!hasCredits) {
+                            tile.classList.add('locked');
+                            tile.title = `Locked: Need ${SHOP_COST_REQUIREMENT} credits`;
+                        } else {
+                            tile.textContent = '🛍';
+                            tile.onclick = () => travelToPlanet(x, y, 'shop');
+                        }
+                        const l = document.createElement('div');
+                        l.className = 'planet-label shop-label';
+                        l.textContent = hasCredits ? 'SHOP' : `🔐 ${SHOP_COST_REQUIREMENT}₹`;
+                        tile.appendChild(l);
+                    } else {
+                        const ep = EXPLORATION_PLANETS.find(p => p.x === x && p.y === y);
+                        if (ep) {
+                            tile.classList.add('exploration');
+                            tile.textContent = '🪐';
+                            tile.onclick = () => travelToPlanet(x, y, 'exploration', ep.name);
+                            const l = document.createElement('div');
+                            l.className = 'planet-label';
+                            l.textContent = ep.name.toUpperCase();
+                            tile.appendChild(l);
+                        }
+                    }
+                    if (x === gameState.player.position.x && y === gameState.player.position.y) {
+                        tile.classList.add('current');
+                    }
+                    grid.appendChild(tile);
+                }
+            }
+        }
+
+        function travelToPlanet(x, y, type, name = '') {
+            if (type === 'shop' && gameState.player.credits < SHOP_COST_REQUIREMENT) {
+                addMessage(`🔐 Shop locked! Need ${SHOP_COST_REQUIREMENT} credits.`, 'error');
+                return;
+            }
+            gameState.player.position = { x, y };
+            if (type === 'home') {
+                gameState.currentLocation = {
+                    id: 'home',
+                    name: 'Terra',
+                    type: 'home',
+                    desc: 'The home planet. Your journey begins here.'
+                };
+                addMessage('🌎 Returned to Terra.', 'system');
+                showView('location');
+            } else if (type === 'shop') {
+                gameState.currentLocation = {
+                    id: 'shop',
+                    name: 'Galactic Marketplace',
+                    type: 'shop',
+                    desc: 'A trading hub.'
+                };
+                addMessage('🛍 Arrived at Marketplace!', 'system');
+                showView('shop');
+                renderShop();
+            } else if (type === 'exploration') {
+                gameState.currentLocation = {
+                    id: 'exploration',
+                    name: name || 'Unknown',
+                    type: 'exploration',
+                    desc: 'An unexplored world.'
+                };
+                addMessage(`🪐 Landed on ${name}.`, 'system');
+                showView('location');
+            }
+            renderGalaxyMap();
+            updateUI();
+            updateLocationVisual();
+        }
+
+        function updateLocationVisual() {
+            const v = document.getElementById('locationVisual');
+            if (gameState.currentLocation.type === 'home') {
+                v.innerHTML = '<div class="location-planet"></div>';
+            } else if (gameState.currentLocation.type === 'shop') {
+                v.innerHTML = '<div class="location-shop"></div>';
+            } else {
+                v.innerHTML = '<div class="location-exploration"></div>';
+            }
+        }
+
+        function showView(view) {
+            document.getElementById('locationView').style.display = view === 'location' ? 'block' : 'none';
+            document.getElementById('shopView').classList.toggle('active', view === 'shop');
+            document.getElementById('combatView').classList.toggle('active', view === 'combat');
+            document.getElementById('lootView').classList.toggle('active', view === 'loot');
+        }
+
+        // =====================
+        // SHOP
+        // =====================
+        function renderShop() {
+            const c = document.getElementById('shopItems');
+            c.innerHTML = '';
+            SHOP_INVENTORY.forEach(item => {
+                const canAfford = gameState.player.credits >= item.price;
+                const d = document.createElement('div');
+                d.className = 'shop-item';
+                d.innerHTML = `
+                    <div class="shop-item-icon">${item.icon}</div>
+                    <div class="shop-item-name">${item.name}</div>
+                    <div class="shop-item-desc">${item.desc}</div>
+                    <div class="shop-item-price">${item.price} Credits</div>
+                    <button class="buy-btn" ${!canAfford ? 'disabled' : ''} onclick="buyItem('${item.name}', ${item.price})">
+                        ${canAfford ? 'BUY' : 'NOT ENOUGH CREDITS'}
+                    </button>
+                `;
+                c.appendChild(d);
+            });
+
+            // 🔥 Scrap deposit panels
+            const items = gameState.player?.inventory || [];
+
+            function totalOf(name) {
+                return items
+                    .filter(it => (it.name || it.item) === name)
+                    .reduce((sum, it) => sum + (it.qty ?? it.count ?? it.amount ?? 1), 0);
+            }
+
+            const scrapCount = totalOf('Scrap');
+            const ironScrapCount = totalOf('Iron Scrap');
+
+            // Deposit Scrap (2 credits each)
+            const scrapDiv = document.createElement('div');
+            scrapDiv.className = 'shop-item';
+            scrapDiv.innerHTML = `
+                <div class="shop-item-icon">📩</div>
+                <div class="shop-item-name">Deposit Scrap</div>
+                <div class="shop-item-desc">
+                    Trade Scrap for credits. You currently have <strong>${scrapCount}</strong> Scrap.
+                </div>
+                <div class="shop-item-price">2 Credits per Scrap</div>
+                <button class="buy-btn" ${scrapCount === 0 ? 'disabled' : ''} onclick="depositScrap('Scrap')">
+                    ${scrapCount === 0 ? 'NO SCRAP TO DEPOSIT' : 'DEPOSIT ALL SCRAP'}
+                </button>
+            `;
+            c.appendChild(scrapDiv);
+
+            // Deposit Iron Scrap (5 credits each)
+            const ironDiv = document.createElement('div');
+            ironDiv.className = 'shop-item';
+            ironDiv.innerHTML = `
+                <div class="shop-item-icon">📩</div>
+                <div class="shop-item-name">Deposit Iron Scrap</div>
+                <div class="shop-item-desc">
+                    Trade Iron Scrap for credits. You currently have <strong>${ironScrapCount}</strong> Iron Scrap.
+                </div>
+                <div class="shop-item-price">5 Credits per Iron Scrap</div>
+                <button class="buy-btn" ${ironScrapCount === 0 ? 'disabled' : ''} onclick="depositScrap('Iron Scrap')">
+                    ${ironScrapCount === 0 ? 'NO IRON SCRAP TO DEPOSIT' : 'DEPOSIT ALL IRON SCRAP'}
+                </button>
+            `;
+            c.appendChild(ironDiv);
+        }
+
+        async function buyItem(itemName, price) {
+            if (!gameSessionId) return;
+            const item = ITEM_DATABASE[itemName];
+            if (!item) return;
+
+            try {
+                const res = await fetch(`${GAME_API_URL}/api/game/shop/buy`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        session_id: gameSessionId,
+                        item_name: itemName
+                    })
+                });
+
+                const data = await res.json();
+                if (!data.ok) {
+                    addMessage(data.msg || `Could not buy ${itemName}.`, "error");
+                    return;
+                }
+
+                addMessage(data.msg || `Purchased ${itemName}.`, "success");
+
+                // Pull fresh player state (credits + inventory) from backend
+                await loadGameState();
+                renderShop();
+                renderGalaxyMap();
+            } catch (err) {
+                console.error("Shop error:", err);
+                addMessage("Shop error: " + err.message, "error");
+            }
+        }
+
+        async function depositScrap(scrapType) {
+            if (!gameSessionId) return;
+            try {
+                const res = await fetch(`${GAME_API_URL}/api/game/command`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        session_id: gameSessionId,
+                        command: "deposit_scrap",
+                        args: [scrapType]
+                    })
+                });
+
+                const data = await res.json();
+                if (!data.ok) {
+                    addMessage(data.error || data.msg || `Failed to deposit ${scrapType}.`, 'error');
+                    return;
+                }
+
+                const p = data.player;
+                gameState.player.credits = p.credits;
+                gameState.player.inventory = p.inventory || [];
+                addMessage(data.msg || `You trade your ${scrapType} for credits.`, 'success');
+                updateUI();
+                renderShop();
+            } catch (err) {
+                console.error("depositScrap error:", err);
+                addMessage("Error depositing scrap: " + err.message, "error");
+            }
+        }
+
+        function exitShop() {
+            showView('location');
+        }
+
+        // =====================
+        // UI + INVENTORY + TOOLTIPS
+        // =====================
+        function updateUI() {
+            const { player, currentLocation } = gameState;
+            const hpPercent = (player.health / player.maxHealth) * 100;
+            document.getElementById('hpBar').style.width = hpPercent + '%';
+            document.getElementById('hpText').textContent = `${player.health} / ${player.maxHealth}`;
+            document.getElementById('credits').textContent = player.credits;
+            document.getElementById('currentLocation').textContent = currentLocation.name;
+            document.getElementById('locationName').textContent = currentLocation.name.toUpperCase();
+            document.getElementById('locationDesc').textContent = currentLocation.desc;
+            renderInventory();
+            updateAttackBar();   // 🔥 NEW
+        }
+
+        function renderInventory() {
+            const grid = document.getElementById('inventoryGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            const items = gameState.player?.inventory || [];
+            const maxSlots = MAX_INVENTORY_SLOTS;
+
+            for (let i = 0; i < maxSlots; i++) {
+                const slot = document.createElement('div');
+                const rawItem = items[i];
+
+                if (rawItem) {
+                    const name = rawItem.name || rawItem.item || 'Unknown';
+                    const qty = rawItem.qty ?? rawItem.count ?? rawItem.amount ?? 1;
+                    const itemData = ITEM_DATABASE[name];
+
+                    slot.className = 'inv-slot filled';
+                    if (itemData && itemData.effect) {
+                        slot.classList.add('usable');
+                    }
+
+                    const icon = itemData?.icon || '📦';
+                    
+                    const isPlasma = name === "Plasma Blaster";
+                    // Use the same constant as backend: 2 uses
+                    const maxUses = 2;
+                    const usesLeft = isPlasma
+                        ? (rawItem.uses_left ?? maxUses)
+                        : null;
+
+                    const durabilityBar = isPlasma
+                        ? `
+                          <div class="item-uses-bar">
+                            <div class="item-uses-fill" style="width: ${(usesLeft / maxUses) * 100}%"></div>
+                          </div>
+                          `
+                        : "";
+
+                    slot.innerHTML = `
+                        ${durabilityBar}
+                        <div class="use-indicator">USE</div>
+                        <div class="inv-slot-icon">${icon}</div>
+                        <div class="inv-slot-count">×${qty}</div>
+                        <div class="inv-slot-name">${name}</div>
+                    `;
+
+                    if (itemData && itemData.effect) {
+                        slot.onclick = () => useInventoryItem(name, i);
+                    }
+
+                    slot.onmouseenter = (e) => showTooltip(e, name);
+                    slot.onmouseleave = hideTooltip;
+                } else {
+                    slot.className = 'inv-slot empty';
+                    slot.innerHTML = '<div class="inv-slot-name">Empty</div>';
+                }
+                grid.appendChild(slot);
+            }
+        }
+
+        function computeAttackPower() {
+            const items = gameState.player?.inventory || [];
+            let attack = BASE_ATTACK_POWER;
+
+            for (const raw of items) {
+                const name = raw.name || raw.item || raw;  // supports different payload shapes
+                const itemData = ITEM_DATABASE[name];
+                if (itemData && itemData.type === 'weapon' && itemData.effect === 'equip') {
+                    attack += itemData.value || 0;
+                }
+            }
+            return attack;
+        }
+
+        function updateAttackBar() {
+            const atkEl = document.getElementById('atkBar');
+            const textEl = document.getElementById('atkText');
+            if (!atkEl || !textEl) return;
+
+            const attack = computeAttackPower();
+            textEl.textContent = attack;
+
+            // Simple width scaling: 0–100%
+            const widthPercent = Math.max(10, Math.min(100, attack));
+            atkEl.style.width = widthPercent + '%';
+        }
+
+        function showTooltip(event, itemName) {
+            const tooltip = document.getElementById('tooltip');
+            const itemData = ITEM_DATABASE[itemName];
+            if (!itemData) return;
+
+            document.getElementById('tooltipName').textContent = itemName;
+            document.getElementById('tooltipDesc').textContent = itemData.desc;
+
+            if (itemData.effect) {
+                let action = '';
+                switch (itemData.effect) {
+                    case 'heal': action = '💊 Click to use'; break;
+                    case 'equip': action = '⚔️ Click to equip'; break;
+                }
+                document.getElementById('tooltipAction').textContent = action;
+            } else {
+                document.getElementById('tooltipAction').textContent = '⚠️ Cannot be used';
+            }
+
+            tooltip.classList.add('active');
+            tooltip.style.left = (event.pageX + 20) + 'px';
+            tooltip.style.top = (event.pageY + 20) + 'px';
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').classList.remove('active');
+        }
+
+        async function useInventoryItem(itemName, slotIndex) {
+            if (!gameSessionId) return;
+            const item = gameState.player.inventory[slotIndex];
+            if (!item) return;
+
+            // Just UX: check if it's a known usable item
+            const itemData = ITEM_DATABASE[itemName];
+            if (!itemData || !itemData.effect) {
+                addMessage(`Cannot use ${itemName}. It's a ${itemData?.type || 'non-usable item'}.`, 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${GAME_API_URL}/api/game/command`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        session_id: gameSessionId,
+                        command: "use",
+                        args: [itemName]
+                    })
+                });
+
+                const data = await res.json();
+                if (!data.ok) {
+                    addMessage(data.error || data.msg || `Failed to use ${itemName}.`, 'error');
+                    return;
+                }
+
+                // Backend applied the effect and updated inventory
+                if (itemName === "Plasma Blaster") {
+                    // Custom UI message for blaster use
+                    addMessage(
+                        "You overload the Plasma Blaster! It shatters and can no longer be used.",
+                        "use"
+                    );
+                } else {
+                    addMessage(data.msg || `Used ${itemName}.`, "use");
+                }
+
+                // Reload true state from server so HP/credits/inventory are accurate
+                await loadGameState();
+            } catch (err) {
+                console.error("Error using item:", err);
+                addMessage("Error using item: " + err.message, "error");
+            }
+        }
+
+        function addMessage(text, type = '') {
+            const log = document.getElementById('messageLog');
+            const msg = document.createElement('div');
+            msg.className = 'message ' + type;
+            msg.textContent = text;
+            log.appendChild(msg);
+            log.scrollTop = log.scrollHeight;
+            if (log.children.length > 20) log.removeChild(log.firstChild);
+        }
+
+        // =====================
+        // BACKEND ACTIONS
+        // =====================
+        async function startAdventure() {
+            if (!gameSessionId) return;
+            if (gameState.currentLocation.type === 'shop') {
+                addMessage('Cannot start adventure in shop!', 'error');
+                return;
+            }
+
+            // Check Plasma Blaster durability + Nano Repair Kit
+            const inv = gameState.player?.inventory || [];
+            let blasterItem = null;
+            let repairIndex = -1;
+
+            inv.forEach((it, idx) => {
+                const n = (it.name || it.item || "").trim();
+                if (n === "Plasma Blaster" && !blasterItem) {
+                    blasterItem = it;
+                }
+                if (n === "Nano Repair Kit" && repairIndex === -1) {
+                    repairIndex = idx;
+                }
+            });
+
+            if (blasterItem) {
+                const maxUses = 2; // keep in sync with backend
+                const usesLeft = blasterItem.uses_left ?? maxUses;
+
+                // If this run will break it and a repair kit exists, show modal instead of browser confirm
+                if (usesLeft === 1 && repairIndex !== -1) {
+                    pendingBlasterDecision = { repairIndex };
+                    openBlasterModal();
+                    return; // wait for user choice
+                }
+            }
+
+            // Normal path: just go on the adventure
+            await startAdventureCore();
+        }
+
+        async function startAdventureCore() {
+            addMessage('⚔ You venture into danger...', 'combat');
+
+            const res = await fetch(`${GAME_API_URL}/api/game/adventure?session_id=${gameSessionId}`, {
+                method: "POST"
+            });
+            const data = await res.json();
+
+            // Updated player state from backend (HP, credits, inventory, durability)
+            if (data.player) {
+                const p = data.player;
+                gameState.player.health = p.health;
+                gameState.player.maxHealth = p.max_health;
+                gameState.player.credits = p.credits;
+                gameState.player.inventory = p.inventory || [];
+            }
+
+            gameState.combat = { enemies: data.enemies || [] };
+            gameState.loot = data.loot ? { items: data.loot } : null;
+
+            updateUI();          // includes attack bar + blaster uses bar
+            renderGalaxyMap();
+
+            showView('combat');
+            renderCombat();
+        }
+
+        function openBlasterModal() {
+            const el = document.getElementById('blasterModal');
+            if (el) el.classList.add('active');
+        }
+
+        function closeBlasterModal() {
+            const el = document.getElementById('blasterModal');
+            if (el) el.classList.remove('active');
+        }
+
+        async function confirmBlasterRepairAndAdventure() {
+            if (!pendingBlasterDecision) {
+                closeBlasterModal();
+                return;
+            }
+
+            const { repairIndex } = pendingBlasterDecision;
+            pendingBlasterDecision = null;
+
+            // This will reload gameState from the backend
+            await useInventoryItem("Nano Repair Kit", repairIndex);
+
+            closeBlasterModal();
+            await startAdventureCore();
+        }
+
+        function skipBlasterRepairAndAdventure() {
+            pendingBlasterDecision = null;
+            closeBlasterModal();
+            startAdventureCore(); // fire and forget is fine here
+        }
+
+        function renderCombat() {
+            const c = document.getElementById('enemiesContainer');
+            c.innerHTML = '';
+            if (!gameState.combat || !gameState.combat.enemies) return;
+            gameState.combat.enemies.forEach(enemy => {
+                const card = document.createElement('div');
+                card.className = 'enemy-card';
+                card.id = `enemy-${enemy.id}`;
+                const hpPercent = (enemy.health / enemy.max_health) * 100;
+                card.innerHTML = `
+                    <div class="enemy-avatar">👾</div>
+                    <div class="enemy-name">${enemy.name}</div>
+                    <div class="enemy-stats">
+                        <span>❤ ${enemy.health} HP</span>
+                        <span>⚔ ${enemy.attack} ATK</span>
+                    </div>
+                    <div class="enemy-hp-bar">
+                        <div class="enemy-hp-fill" style="width:${hpPercent}%"></div>
+                    </div>
+                    <button class="attack-btn" onclick="attackEnemy(${enemy.id})">⚔ ATTACK</button>
+                `;
+                c.appendChild(card);
+            });
+        }
+
+        async function attackEnemy(enemyId) {
+            // Use current Attack stat as flat damage
+            const attackPower = typeof computeAttackPower === "function"
+                ? computeAttackPower()
+                : BASE_ATTACK_POWER;
+
+            const res = await fetch(
+                `${GAME_API_URL}/api/game/attack?session_id=${gameSessionId}&enemy_id=${enemyId}&attack=${attackPower}`,
+                { method: "POST" }
+            );
+            const data = await res.json();
+            (data.events || []).forEach(ev => addMessage(ev, 'combat'));
+
+            if (data.player_dead) {
+                addMessage("💀 You died.", 'error');
+                gameState.combat = null;
+                gameState.player.health = 0;
+                showView('location');
+                updateUI();
+                return;
+            }
+
+            gameState.player.health = data.player.health;
+            gameState.player.maxHealth = data.player.max_health;
+            gameState.player.credits = data.player.credits;
+
+            if (data.combat_won) {
+                gameState.combat = null;
+                gameState.loot = data.loot ? { items: data.loot } : null;
+                if (gameState.loot && gameState.loot.items && gameState.loot.items.length > 0) {
+                    showView('loot');
+                    renderLoot();
+                } else {
+                    showView('location');
+                }
+            } else {
+                gameState.combat = { enemies: data.enemies };
+                renderCombat();
+            }
+            updateUI();
+        }
+
+        function renderLoot() {
+            const c = document.getElementById('lootItems');
+            const collectBtn = document.getElementById('collectLootBtn');
+            const leaveBtn = document.getElementById('leaveLootBtn');
+            
+            c.innerHTML = '';
+            if (!gameState.loot || !gameState.loot.items) return;
+            
+            gameState.loot.items.forEach(item => {
+                const d = document.createElement('div');
+                const count = item.count ?? item.qty ?? 1;
+                const itemData = ITEM_DATABASE[item.name];
+                const icon = itemData?.icon || '📦';
+                d.className = 'loot-item';
+                d.innerHTML = `
+                    <div class="loot-item-icon">${icon}</div>
+                    <div class="loot-item-name">${item.name}</div>
+                    <div class="loot-item-amount">×${count}</div>
+                `;
+                c.appendChild(d);
+            });
+
+            // Capacity check
+            const currentSlots = gameState.player?.inventory?.length || 0;
+            const lootCount = gameState.loot.items.length;
+            const freeSlots = MAX_INVENTORY_SLOTS - currentSlots;
+
+            // If not enough space, disable Collect and prompt to leave
+            if (freeSlots < lootCount) {
+                collectBtn.disabled = true;
+                collectBtn.classList.add("btn-disabled");
+                addMessage(
+                    `Your inventory is full (${freeSlots} free slots, ${lootCount} loot items). ` +
+                    `You can't carry this – use "Leave Loot" or free up space first.`,
+                    "system"
+                );
+            } else {
+                collectBtn.disabled = false;
+                collectBtn.classList.remove("btn-disabled");
+            }
+        }
+
+        async function collectLoot() {
+            const collectBtn = document.getElementById('collectLootBtn');
+            if (collectBtn.disabled) return;
+            
+            if (!gameState.loot || !gameState.loot.items || gameState.loot.items.length === 0) {
+                showView('location');
+                return;
+            }
+            
+            const res = await fetch(`${GAME_API_URL}/api/game/loot/claim?session_id=${gameSessionId}`, {
+                method: "POST"
+            });
+            const data = await res.json();
+            const p = data.player;
+            gameState.player.health = p.health;
+            gameState.player.maxHealth = p.max_health;
+            gameState.player.credits = p.credits;
+            gameState.player.inventory = p.inventory || [];
+            (data.claimed || []).forEach(item => {
+                const amount = item.count ?? item.qty ?? 1;
+                addMessage(`Collected ${item.name} ×${amount}`, 'loot');
+            });
+            gameState.loot = null;
+            showView('location');
+            updateUI();
+            renderGalaxyMap();
+        }
+
+        function leaveLoot() {
+            addMessage("You leave the loot behind.", "system");
+            gameState.loot = null;
+            showView('location');
+        }
+
+        async function searchArea() {
+            if (!gameSessionId) return;
+            if (gameState.currentLocation.type === 'shop') {
+                addMessage('Cannot search in shop!', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${GAME_API_URL}/api/game/search`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: gameSessionId })
+                });
+
+                const data = await res.json();
+
+                if (!data.ok) {
+                    // inventory full or nothing found
+                    addMessage(data.msg || "You search the area but find nothing.", "system");
+                    await loadGameState();  // still refresh in case credits changed
+                    return;
+                }
+
+                addMessage(data.msg || "You search the area...", "loot");
+
+                if (data.items && data.items.length) {
+                    data.items.forEach(it => {
+                        const qty = it.qty ?? it.count ?? 1;
+                        addMessage(`Found ${qty}× ${it.name}.`, "loot");
+                    });
+                }
+
+                if (data.credits_gained) {
+                    addMessage(`Found ${data.credits_gained} credits.`, "loot");
+                }
+
+                await loadGameState();  // pull updated inventory + credits
+                renderGalaxyMap();
+            } catch (err) {
+                console.error("Search error:", err);
+                addMessage("Error while searching: " + err.message, "error");
+            }
+        }
+
+        async function heal() {
+            if (!gameSessionId) return;
+            const res = await fetch(`${GAME_API_URL}/api/game/heal?session_id=${gameSessionId}`, {
+                method: "POST"
+            });
+            const data = await res.json();
+            const p = data.player;
+            gameState.player.health = p.health;
+            gameState.player.maxHealth = p.max_health;
+            addMessage(data.message || 'You feel a bit better.', 'system');
+            updateUI();
+        }
+
+        // =====================
+        // PLAYER CHAT SYSTEM
+        // =====================
+        const chatToggleBtn = document.getElementById('chatToggleBtn');
+        const chatContainer = document.getElementById('chatContainer');
+        const chatCloseBtn = document.getElementById('chatCloseBtn');
+        const chatSendBtn = document.getElementById('chatSendBtn');
+        const chatInput = document.getElementById('chatInput');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatNotification = document.getElementById('chatNotification');
+
+        let chatOpen = false;
+        let unreadMessages = 0;
+        let pendingBlasterDecision = null;
+
+        // Toggle chat open/close
+        chatToggleBtn.addEventListener('click', () => {
+            chatOpen = !chatOpen;
+            if (chatOpen) {
+                chatContainer.classList.add('open');
+                unreadMessages = 0;
+                chatNotification.style.display = 'none';
+                chatInput.focus();
+            } else {
+                chatContainer.classList.remove('open');
+            }
+        });
+
+        // Close button
+        chatCloseBtn.addEventListener('click', () => {
+            chatOpen = false;
+            chatContainer.classList.remove('open');
+        });
+
+        // Send message
+        chatSendBtn.addEventListener('click', sendChatMessage);
+
+        // Enter key to send
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+
+        function sendChatMessage() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+            
+            // Check if logged in
+            if (!authState.activeCharacter) {
+                addChatMessage(null, 'You must be logged in to chat.', 'system');
+                return;
+            }
+            
+            chatInput.value = '';
+            
+            // Show own message immediately
+            addChatMessage('You', text, 'own');
+            
+            // Send to server via "say" command
+            api.sendCommand(authState.activeCharacter.id, `say ${text}`).catch(err => {
+                addChatMessage(null, `Failed to send: ${err.message}`, 'system');
+            });
+        }
+
+        function addChatMessage(sender, text, type = 'other') {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `chat-message ${type}`;
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble';
+            
+            if (type === 'other' && sender) {
+                const senderSpan = document.createElement('span');
+                senderSpan.className = 'chat-sender';
+                senderSpan.textContent = sender + ':';
+                bubble.appendChild(senderSpan);
+                bubble.appendChild(document.createTextNode(' ' + text));
+            } else {
+                bubble.textContent = text;
+            }
+            
+            msgDiv.appendChild(bubble);
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Show notification if chat is closed
+            if (!chatOpen && type === 'other') {
+                unreadMessages++;
+                chatNotification.textContent = unreadMessages > 9 ? '9+' : unreadMessages;
+                chatNotification.style.display = 'flex';
+            }
+        }
+
+        // Listen for incoming chat messages from server
+        switchboard.on('SayMessage', ({ payload }) => {
+            if (payload?.entity_name && payload?.message) {
+                // Don't show our own messages again
+                if (payload.entity_name !== authState.activeCharacter?.name) {
+                    addChatMessage(payload.entity_name, payload.message, 'other');
+                }
+            }
+        });
+
+        // Also listen for general chat/text events
+        switchboard.on('chat', ({ payload }) => {
+            if (payload?.from && payload?.message) {
+                if (payload.from !== authState.activeCharacter?.name) {
+                    addChatMessage(payload.from, payload.message, 'other');
+                }
+            }
+        });
+
+        // =====================
+        // MAKE FUNCTIONS GLOBAL
+        // =====================
+        window.startAdventure = startAdventure;
+        window.searchArea = searchArea;
+        window.heal = heal;
+        window.attackEnemy = attackEnemy;
+        window.buyItem = buyItem;
+        window.useInventoryItem = useInventoryItem;
+        window.collectLoot = collectLoot;
+        window.leaveLoot = leaveLoot;
+        window.travelToPlanet = travelToPlanet;
+        window.showView = showView;
+        window.sendChatMessage = sendChatMessage;
+        window.depositScrap = depositScrap;
+        window.depositIronScrap = () => depositScrap('Iron Scrap');
+        
+        // Chat toggle is handled by event listener, but expose it for compatibility
+        window.togglePlayerChat = () => {
+            chatToggleBtn.click();
+        };
+
+        // =====================
+        // START
+        // =====================
+        // Call initAuth() instead of init() - it will call init() after authentication
+        initAuth();
+    </script>

@@ -1,3 +1,4 @@
+// static/js/api.js
 const STORAGE_KEY = "muforge.tokens";
 
 function safeJsonParse(value) {
@@ -9,9 +10,7 @@ function safeJsonParse(value) {
 }
 
 function decodeJwt(token) {
-    if (!token) {
-        return null;
-    }
+    if (!token) return null;
     try {
         const [, payload] = token.split(".");
         const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
@@ -32,9 +31,7 @@ export class ApiClient {
 
     loadTokens() {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) {
-            return null;
-        }
+        if (!raw) return null;
         const parsed = safeJsonParse(raw);
         if (!parsed) {
             localStorage.removeItem(STORAGE_KEY);
@@ -90,31 +87,21 @@ export class ApiClient {
     }
 
     async register(email, password) {
-        const payload = await this.request(
-            "/auth/register",
-            {
-                method: "POST",
-                body: { email, password },
-            },
-            { auth: false }
-        );
+        const payload = await this.request("/auth/register", {
+            method: "POST",
+            body: { email, password },
+        }, { auth: false });
         this.setTokens(payload);
         return payload;
     }
 
     async refresh() {
-        if (!this.refreshToken) {
-            return false;
-        }
+        if (!this.refreshToken) return false;
         try {
-            const payload = await this.request(
-                "/auth/refresh",
-                {
-                    method: "POST",
-                    body: { refresh_token: this.refreshToken },
-                },
-                { auth: false }
-            );
+            const payload = await this.request("/auth/refresh", {
+                method: "POST",
+                body: { refresh_token: this.refreshToken },
+            }, { auth: false });
             this.setTokens(payload);
             return true;
         } catch (error) {
@@ -133,11 +120,7 @@ export class ApiClient {
         };
 
         if (init.body !== undefined) {
-            if (
-                typeof init.body === "string" ||
-                init.body instanceof FormData ||
-                init.body instanceof URLSearchParams
-            ) {
+            if (typeof init.body === "string" || init.body instanceof FormData || init.body instanceof URLSearchParams) {
                 config.body = init.body;
             } else {
                 config.body = JSON.stringify(init.body);
@@ -163,9 +146,7 @@ export class ApiClient {
     }
 
     async getCharacters() {
-        if (!this.userId) {
-            throw new Error("Missing user id");
-        }
+        if (!this.userId) throw new Error("Missing user id");
         return this.request(`/users/${this.userId}/characters`);
     }
 
@@ -191,9 +172,8 @@ export class ApiClient {
             const detail = typeof message === "object" ? message.detail ?? message.error ?? message.msg : message;
             throw new Error(detail || `Request failed with ${response.status}`);
         }
-        if (response.status === 204 || !isJson) {
-            return null;
-        }
+        if (response.status === 204 || !isJson) return null;
         return response.json();
     }
 }
+

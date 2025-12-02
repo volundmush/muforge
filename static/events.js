@@ -1,3 +1,4 @@
+// static/js/events.js
 const textDecoder = new TextDecoder();
 
 export class EventSwitchboard {
@@ -16,9 +17,7 @@ export class EventSwitchboard {
 
     off(eventName, handler) {
         const handlers = this.handlers.get(eventName ?? "*");
-        if (handlers) {
-            handlers.delete(handler);
-        }
+        if (handlers) handlers.delete(handler);
     }
 
     clear() {
@@ -29,12 +28,8 @@ export class EventSwitchboard {
         const exact = this.handlers.get(eventName);
         const wildcard = this.handlers.get("*");
         const packet = { type: eventName, payload };
-        if (exact) {
-            exact.forEach((handler) => handler(packet));
-        }
-        if (wildcard) {
-            wildcard.forEach((handler) => handler(packet));
-        }
+        if (exact) exact.forEach((handler) => handler(packet));
+        if (wildcard) wildcard.forEach((handler) => handler(packet));
     }
 }
 
@@ -70,9 +65,7 @@ export class CharacterEventStream {
     }
 
     async #loop() {
-        if (!this.active) {
-            return;
-        }
+        if (!this.active) return;
         const token = this.tokenProvider?.();
         if (!token) {
             this.#notify("offline", new Error("Missing token"));
@@ -88,16 +81,12 @@ export class CharacterEventStream {
                 },
                 signal: this.controller.signal,
             });
-            if (!response.ok) {
-                throw new Error(`Stream failed with ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`Stream failed with ${response.status}`);
             this.#notify("open");
             await this.#consume(response.body.getReader());
             this.#notify("closed");
         } catch (error) {
-            if (this.controller?.signal.aborted || !this.active) {
-                return;
-            }
+            if (this.controller?.signal.aborted || !this.active) return;
             this.#notify("error", error);
         }
         if (this.active) {
@@ -110,9 +99,7 @@ export class CharacterEventStream {
         let buffer = "";
         while (this.active) {
             const { value, done } = await reader.read();
-            if (done) {
-                break;
-            }
+            if (done) break;
             buffer += textDecoder.decode(value, { stream: true });
             buffer = this.#drainBuffer(buffer);
         }
@@ -132,25 +119,19 @@ export class CharacterEventStream {
         let eventName = "message";
         const data = [];
         for (const line of lines) {
-            if (!line.trim() || line.startsWith(":")) {
-                continue;
-            }
+            if (!line.trim() || line.startsWith(":")) continue;
             if (line.startsWith("event:")) {
                 eventName = line.slice(6).trim() || eventName;
             } else if (line.startsWith("data:")) {
                 data.push(line.slice(5).trimStart());
             }
         }
-        if (!data.length) {
-            return;
-        }
+        if (!data.length) return;
         const payloadText = data.join("\n");
         let payload = payloadText;
         try {
             payload = JSON.parse(payloadText);
-        } catch (error) {
-            // keep raw text if not JSON
-        }
+        } catch (error) { /* keep raw text */ }
         this.dispatcher?.dispatch(eventName, payload);
     }
 
@@ -160,3 +141,4 @@ export class CharacterEventStream {
         }
     }
 }
+
