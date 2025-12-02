@@ -25,6 +25,7 @@ dependencies = [
     "argon2-cffi",
     "asyncpg",
     "httpx[http2]",
+    "httpx-sse",
     "lark",
     "aiomudtelnet @ git+https://github.com/volundmush/aiomudtelnet@main"
 ]

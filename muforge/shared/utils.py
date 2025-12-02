@@ -128,8 +128,9 @@ def get_config(mode: str) -> dict:
         "secrets",
         f"secrets-{mode}",
     ):
-        if Path(f"{f}.toml").exists():
-            files.append(f"{f}.toml")
+        config_path = root_path / f"{f}.toml"
+        if config_path.exists():
+            files.append(config_path)
 
     d = Dynaconf(settings_files=files)
 
