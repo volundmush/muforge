@@ -14,23 +14,8 @@ from lark import Lark
 
 import muforge
 from muforge.shared.application import Application as OldApplication
+from muforge.shared.fastapi import create_pool
 from muforge.shared.utils import callables_from_module, property_from_module
-
-
-def decode_json(data: bytes):
-    decoded = orjson.loads(data)
-    return decoded
-
-
-async def init_connection(conn: asyncpg.Connection):
-    for scheme in ("json", "jsonb"):
-        await conn.set_type_codec(
-            scheme,  # The PostgreSQL type to target.
-            encoder=lambda v: orjson.dumps(v).decode("utf-8"),
-            decoder=decode_json,
-            schema="pg_catalog",
-            format="text",
-        )
 
 
 class Application(OldApplication):
@@ -43,8 +28,7 @@ class Application(OldApplication):
 
     async def setup_asyncpg(self):
         settings = muforge.SETTINGS["POSTGRESQL"]
-        pool = await asyncpg.create_pool(init=init_connection, **settings)
-        muforge.PGPOOL = pool
+        muforge.PGPOOL = create_pool(settings)
 
     async def setup_commands(self):
         for k, v in muforge.SETTINGS["GAME"]["commands"].items():
@@ -143,12 +127,10 @@ class Application(OldApplication):
 
     async def setup(self):
         await super().setup()
-        await self.setup_game_data()
         await self.setup_lark()
         await self.setup_asyncpg()
         await self.setup_fastapi()
         await self.setup_commands()
-        await self.setup_typeclasses()
 
         for k, v in muforge.SETTINGS["GAME"].get("lockfuncs", dict()).items():
             lock_funcs = callables_from_module(v)
@@ -161,8 +143,6 @@ class Application(OldApplication):
             muforge.LISTENERS[k] = listener
             for table in listener.tables:
                 muforge.LISTENERS_TABLE[table].append(listener)
-
-        await self.setup_load_database()
 
     async def handle_postgre_notification(self, conn, pid, channel, payload):
         decoded = orjson.loads(payload)

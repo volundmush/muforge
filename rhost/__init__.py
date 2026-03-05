@@ -1,7 +1,14 @@
-from .models import OBJECT_TARGET, MushAttribute, MushObject, ObjectType
+from .models import (
+    OBJECT_TARGET,
+    Database,
+    MushAttribute,
+    MushObject,
+    ObjectType,
+)
 from .reader import parse_flatfile
 
 __all__ = [
+    "Database",
     "MushAttribute",
     "MushObject",
     "OBJECT_TARGET",

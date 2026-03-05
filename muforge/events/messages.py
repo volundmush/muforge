@@ -4,7 +4,7 @@ import datetime
 from rich.columns import Columns
 from rich.console import Group
 
-from muforge.portal.base_connection import BaseConnection
+from muforge.muportal.base_connection import BaseConnection
 
 from .base import EventBase
 

@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import muforge
-from muforge.game.db import pcs as pcs_db
+from muforge.mugame.db import pcs as pcs_db
 from muforge.shared.models.pcs import ActiveAs, CharacterCreate, CharacterModel
 from muforge.shared.models.users import UserModel
 

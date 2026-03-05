@@ -27,6 +27,7 @@ dependencies = [
     "httpx[http2]",
     "httpx-sse",
     "lark",
+    "dotenv",
     "aiomudtelnet @ git+https://github.com/volundmush/aiomudtelnet@main"
 ]
 # This creates the `muforge` command on install

@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from muforge.game.db import pcs as pcs_db
+from muforge.mugame.db import pcs as pcs_db
 from muforge.shared.models.pcs import PCModel
 from muforge.shared.models.users import UserModel
 

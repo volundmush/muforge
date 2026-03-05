@@ -20,11 +20,11 @@ from inspect import getmembers, getmodule, getmro, ismodule, trace
 from pathlib import Path
 
 from loguru import logger
-from passlib.context import CryptContext
+
 
 import muforge
 
-crypt_context = CryptContext(schemes=["argon2", "des_crypt"], deprecated=["des_crypt"])
+
 
 
 def setup_logging(name: str):

@@ -16,7 +16,7 @@ class ObjectType(IntEnum):
 
 RE_DBREF = re.compile(r"^#(?P<dbref>\d+)$")
 RE_OBJID = re.compile(r"^#(?P<dbref>\d+):(?P<csecs>\d+)$")
-RE_TAG = re.compile(r"^#(?P<tag>[A-Za-z]+)$")
+RE_TAG = re.compile(r"^#(?P<tag>[A-Za-z_]+)$")
 
 
 class MushObject:
