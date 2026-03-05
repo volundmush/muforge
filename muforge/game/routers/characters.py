@@ -1,19 +1,17 @@
-from typing import Annotated
-
-import muforge
 import typing
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Body, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-
 from pydantic import BaseModel
 
-from .utils import get_current_user, get_acting_character, streaming_list
-
+import muforge
+from muforge.game.db import pcs as pcs_db
+from muforge.shared.models.pcs import ActiveAs, CharacterCreate, CharacterModel
 from muforge.shared.models.users import UserModel
-from muforge.shared.models.characters import CharacterModel, ActiveAs, CharacterCreate
-from muforge.game.db import characters as characters_db
+
+from .utils import get_acting_character, get_current_user, streaming_list
 
 router = APIRouter()
 
@@ -87,9 +85,9 @@ class CommandSubmission(BaseModel):
 
 @router.post("/{character_id}/command")
 async def submit_command(
-        user: Annotated[UserModel, Depends(get_current_user)],
-        character_id: uuid.UUID,
-        command: Annotated[CommandSubmission, Body()],
+    user: Annotated[UserModel, Depends(get_current_user)],
+    character_id: uuid.UUID,
+    command: Annotated[CommandSubmission, Body()],
 ):
     if character_id not in user.characters:
         raise HTTPException(
@@ -97,13 +95,12 @@ async def submit_command(
         )
 
     if not (session := muforge.SESSIONS.get(character_id, None)):
-        raise HTTPException(
-            status_code=404, detail="Character entity not found."
-        )
+        raise HTTPException(status_code=404, detail="Character entity not found.")
 
     await session.execute_command(command.command)
 
     return {"status": "ok"}
+
 
 @router.post("/", response_model=CharacterModel)
 async def create_character(

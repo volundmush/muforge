@@ -1,11 +1,12 @@
-import muforge
-from .base import BaseParser
-from muforge.shared.commands import CMD_MATCH
 from httpx import HTTPStatusError
+
+import muforge
+from muforge.shared.commands import CMD_MATCH
+from muforge.shared.models.pcs import ActiveAs, CharacterModel
+from muforge.shared.models.users import UserModel
 from muforge.shared.utils import partial_match
 
-from muforge.shared.models.users import UserModel
-from muforge.shared.models.characters import ActiveAs, CharacterModel
+from .base import BaseParser
 
 
 class UserParser(BaseParser):

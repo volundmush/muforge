@@ -1,4 +1,5 @@
 from typing import Annotated, Optional
+
 from pydantic import AfterValidator, constr
 
 from . import validators
@@ -13,4 +14,9 @@ optional_rich_text = Annotated[
 locks = Annotated[dict[str, str], AfterValidator(validators.locks)]
 optional_locks = Annotated[
     Optional[dict[str, str]], AfterValidator(validators.optional_locks)
+]
+
+username = Annotated[str, AfterValidator(validators.NameSanitizer("username"))]
+pc_name = Annotated[
+    str, AfterValidator(validators.NameSanitizer("Player Character name"))
 ]

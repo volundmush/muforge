@@ -66,7 +66,7 @@ ALTER TABLE users
 CREATE VIEW user_passwords AS
 SELECT u.*,
        p.id         AS password_id,
-       p.password,
+       p.password_hash,
        p.created_at AS password_created_at
 FROM users u
          LEFT JOIN passwords p ON u.current_password_id = p.id;
@@ -95,7 +95,7 @@ SELECT l.id,
 FROM loginrecords l
          JOIN users u ON l.user_id = u.id;
 
-CREATE TABLE characters (
+CREATE TABLE pcs (
     id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id        UUID      NOT NULL REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     name CITEXT NOT NULL,
@@ -106,54 +106,54 @@ CREATE TABLE characters (
     approved_at TIMESTAMPTZ NULL
 );
 
-CREATE UNIQUE INDEX ux_characters__name_not_deleted ON characters (name) WHERE deleted_at IS NULL;
-CREATE INDEX idx_characters__user_id ON characters (user_id);
-CREATE INDEX idx_characters__approved_at ON characters (approved_at);
-CREATE INDEX idx_characters__last_active_at ON characters (last_active_at);
+CREATE UNIQUE INDEX ux_pcs__name_not_deleted ON pcs (name) WHERE deleted_at IS NULL;
+CREATE INDEX idx_pcs__user_id ON pcs (user_id);
+CREATE INDEX idx_pcs__approved_at ON pcs (approved_at);
+CREATE INDEX idx_pcs__last_active_at ON pcs (last_active_at);
 
-CREATE TABLE character_components (
-    character_id    UUID        NOT NULL REFERENCES characters(id) ON DELETE CASCADE ON UPDATE CASCADE,
+CREATE TABLE pc_components (
+    pc_id    UUID        NOT NULL REFERENCES pcs(id) ON DELETE CASCADE ON UPDATE CASCADE,
     component_name  VARCHAR(100) NOT NULL,
     data            JSONB       NOT NULL DEFAULT '{}'::jsonb,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    PRIMARY KEY (character_id, component_name)
+    PRIMARY KEY (pc_id, component_name)
 );
 
-CREATE INDEX idx_character_components__component_name ON character_components (component_name);
+CREATE INDEX idx_pc_components__component_name ON pc_components (component_name);
 
-CREATE TABLE character_sessions (
-    character_id UUID NOT NULL PRIMARY KEY REFERENCES characters(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    activity_at TIMESTAMPTZ NOT NULL DEFAULT now()
+CREATE TABLE pc_sessions (
+    pc_id UUID NOT NULL PRIMARY KEY REFERENCES pcs(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_character_sessions__activity_at ON character_sessions (activity_at);
+CREATE VIEW pcs_active AS
+SELECT p.*,s.created_at as active_at FROM pc_sessions AS s LEFT JOIN pcs AS p ON s.pc_id=p.id;
 
-CREATE TABLE character_events (
+CREATE TABLE pc_events (
     event_id BIGSERIAL NOT NULL PRIMARY KEY,
-    character_id UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    pc_id UUID NOT NULL REFERENCES pcs(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     event_type LTREE NOT NULL,
     data JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
-CREATE INDEX idx_character_events__character_id ON character_events (character_id);
-CREATE INDEX idx_character_events__event_type ON character_events (event_type);
-CREATE INDEX idx_character_events__event_type_gist ON character_events USING GIST (event_type);
-CREATE INDEX idx_character_events__created_at ON character_events (created_at);
+CREATE INDEX idx_pc_events__pc_id ON pc_events (pc_id);
+CREATE INDEX idx_pc_events__event_type ON pc_events (event_type);
+CREATE INDEX idx_pc_events__event_type_gist ON pc_events USING GIST (event_type);
+CREATE INDEX idx_pc_events__created_at ON pc_events (created_at);
 
 CREATE TABLE actduo (
     id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    character_id UUID NULL REFERENCES characters(id) ON DELETE RESTRICT
+    pc_id UUID NULL REFERENCES pcs(id) ON DELETE RESTRICT
 );
 
-CREATE UNIQUE INDEX ux_actduo__user_id_character_id ON actduo (user_id, character_id) WHERE character_id IS NOT NULL;
-CREATE UNIQUE INDEX ux_actduo__user_id_null_character ON actduo (user_id) WHERE character_id IS NULL;
+CREATE UNIQUE INDEX ux_actduo__user_id_pc_id ON actduo (user_id, pc_id) WHERE pc_id IS NOT NULL;
+CREATE UNIQUE INDEX ux_actduo__user_id_null_pc ON actduo (user_id) WHERE pc_id IS NULL;
 CREATE INDEX idx_actduo__user_id ON actduo (user_id);
-CREATE INDEX idx_actduo__character_id ON actduo (character_id);
+CREATE INDEX idx_actduo__pc_id ON actduo (pc_id);
 
 CREATE TABLE actname (
     id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -193,14 +193,14 @@ CREATE INDEX idx_faction_ranks__faction_id ON faction_ranks (faction_id);
 
 CREATE TABLE faction_members (
     faction_id UUID NOT NULL REFERENCES factions(id) ON DELETE CASCADE,
-    character_id UUID NOT NULL REFERENCES characters(id) ON DELETE RESTRICT,
+    pc_id UUID NOT NULL REFERENCES pcs(id) ON DELETE RESTRICT,
     rank_id UUID NOT NULL REFERENCES faction_ranks(id) ON DELETE RESTRICT,
     permissions JSONB NOT NULL DEFAULT '[]'::jsonb,
     title TEXT NULL,
-    PRIMARY KEY (faction_id, character_id)
+    PRIMARY KEY (faction_id, pc_id)
 );
 
-CREATE INDEX idx_faction_members__character_id ON faction_members (character_id);
+CREATE INDEX idx_faction_members__pc_id ON faction_members (pc_id);
 CREATE INDEX idx_faction_members__rank_id ON faction_members (rank_id);
 
 --- Message Resource
@@ -286,12 +286,12 @@ CREATE TABLE location_instances (
 
 CREATE INDEX idx_location_instances__location_id ON location_instances (location_id);
 
-CREATE TABLE character_locations (
-    character_id UUID NOT NULL PRIMARY KEY REFERENCES characters(id) ON DELETE CASCADE,
+CREATE TABLE pc_locations (
+    pc_id UUID NOT NULL PRIMARY KEY REFERENCES pcs(id) ON DELETE CASCADE,
     instance_id UUID NOT NULL REFERENCES location_instances(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_character_locations__instance_id ON character_locations (instance_id);
+CREATE INDEX idx_pc_locations__instance_id ON pc_locations (instance_id);
 
 CREATE TABLE location_actions (
     id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -356,12 +356,12 @@ CREATE INDEX idx_theme__approved_at ON theme (approved_at);
 
 CREATE TABLE theme_members (
     theme_id UUID NOT NULL REFERENCES theme(id) ON DELETE CASCADE,
-    character_id UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    pc_id UUID NOT NULL REFERENCES pcs(id) ON DELETE CASCADE,
     member_type INT NOT NULL DEFAULT 0,
-    PRIMARY KEY (theme_id, character_id)
+    PRIMARY KEY (theme_id, pc_id)
 );
 
-CREATE INDEX idx_theme_members__character_id ON theme_members (character_id);
+CREATE INDEX idx_theme_members__pc_id ON theme_members (pc_id);
 
 -- Plot System
 CREATE TABLE plot (

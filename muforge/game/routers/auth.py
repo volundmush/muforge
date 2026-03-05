@@ -1,39 +1,32 @@
 from typing import Annotated
 
-import muforge
 import jwt
-
-from fastapi import APIRouter, Depends, Body, HTTPException, status, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from muforge.shared.models.auth import TokenResponse, UserLogin, RefreshTokenModel
-
-from ..db import users as users_db, auth as auth_db
+import muforge
+from muforge.shared.models.auth import RefreshTokenModel, TokenResponse, UserLogin
 from muforge.shared.utils import crypt_context
+
+from ..db import auth as auth_db
+from ..db import users as users_db
 from .utils import get_real_ip
 
 router = APIRouter()
 
 
-async def handle_login(request: Request, email: str, password: str) -> TokenResponse:
+async def handle_login(request: Request, username: str, password: str) -> TokenResponse:
     ip = get_real_ip(request)
     user_agent = request.headers.get("User-Agent", None)
 
-    result = await auth_db.authenticate_user(email, password, ip, user_agent)
+    result = await auth_db.authenticate_user(username, password, ip, user_agent)
     return TokenResponse.from_uuid(result.id)
 
 
 @router.post("/register", response_model=TokenResponse)
 async def register(request: Request, data: Annotated[UserLogin, Body()]):
 
-    try:
-        hashed = crypt_context.hash(data.password.get_secret_value())
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Error hashing password."
-        )
-
-    user = await auth_db.register_user(data.email, hashed)
+    user = await auth_db.register_user(data.username, data.password.get_secret_value())
     token = TokenResponse.from_uuid(user.id)
     return token
 

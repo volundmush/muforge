@@ -1,11 +1,12 @@
 import typing
+
 import lark
 import pydantic
-import muforge
-from lark.exceptions import LarkError
 from fastapi import HTTPException, status
+from lark.exceptions import LarkError
 
-from muforge.shared.models.characters import ActiveAs
+import muforge
+from muforge.shared.models.pcs import ActiveAs
 
 
 class LockArguments(pydantic.BaseModel):

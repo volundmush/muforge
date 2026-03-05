@@ -1,13 +1,16 @@
-import pydantic
-import muforge
-import jwt
 import uuid
-
 from datetime import datetime, timedelta, timezone
+
+import jwt
+import pydantic
+
+import muforge
+
+from .fields import username
 
 
 class UserLogin(pydantic.BaseModel):
-    email: pydantic.EmailStr
+    username: username
     password: pydantic.SecretStr
 
 

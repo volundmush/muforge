@@ -1,20 +1,19 @@
-import typing
-import muforge
 import asyncio
-from loguru import logger
+import typing
+
 from httpx import HTTPStatusError
-
-from rich.markup import escape
+from loguru import logger
 from rich.errors import MarkupError
+from rich.markup import escape
 
-from muforge.shared.models.characters import ActiveAs
+import muforge
+from muforge.shared.commands import CMD_MATCH
+from muforge.shared.models.pcs import ActiveAs
 
 from .base import BaseParser
-from muforge.shared.commands import CMD_MATCH
 
 
 class CharacterParser(BaseParser):
-
     def __init__(self, active: ActiveAs):
         super().__init__()
         self.active = active
@@ -32,7 +31,6 @@ class CharacterParser(BaseParser):
 
     async def on_end(self):
         self.shutdown_event.set()
-
 
     async def handle_event(self, event_name: str, event_data: dict):
 
@@ -108,7 +106,11 @@ class CharacterParser(BaseParser):
             return
 
         try:
-            result = await self.api_call("POST", f"/characters/{self.active.character.id}/command", json={"command": event})
+            result = await self.api_call(
+                "POST",
+                f"/characters/{self.active.character.id}/command",
+                json={"command": event},
+            )
         except MarkupError as e:
             await self.send_rich(f"[bold red]Error parsing markup:[/] {escape(str(e))}")
         except ValueError as error:

@@ -1,31 +1,30 @@
-import importlib
-import uuid
-import typing
-import random
-import string
-import re
-import os
-import types
-import traceback
-import time
-import sys
-import ssl
-from pathlib import Path
 import argparse
-import signal
 import asyncio
-from contextlib import asynccontextmanager
-from passlib.context import CryptContext
+import importlib
+import os
+import random
+import re
+import signal
+import ssl
+import string
+import sys
+import time
+import traceback
+import types
+import typing
+import uuid
 from collections import defaultdict
-
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from inspect import getmembers, getmodule, getmro, ismodule, trace
+from pathlib import Path
 
 from loguru import logger
+from passlib.context import CryptContext
 
 import muforge
 
-crypt_context = CryptContext(schemes=["argon2"])
+crypt_context = CryptContext(schemes=["argon2", "des_crypt"], deprecated=["des_crypt"])
 
 
 def setup_logging(name: str):
@@ -108,8 +107,9 @@ async def run_program(program: str, settings: dict):
 
 
 def get_config(mode: str) -> dict:
-    import muforge
     from dynaconf import Dynaconf
+
+    import muforge
 
     root_path = Path.cwd() / "config"
 
@@ -266,11 +266,11 @@ def to_str(text, session=None):
     )
     try:
         return text.decode(default_encoding)
-    except (LookupError, UnicodeDecodeError):
+    except LookupError, UnicodeDecodeError:
         for encoding in ["utf-8", "latin-1", "ISO-8859-1"]:
             try:
                 return text.decode(encoding)
-            except (LookupError, UnicodeDecodeError):
+            except LookupError, UnicodeDecodeError:
                 pass
         # no valid encoding found. Replace unconvertable parts with ?
         return text.decode(default_encoding, errors="replace")
@@ -602,6 +602,7 @@ def class_from_module(path, defaultpaths=None, fallback=None):
 
 # alias
 object_from_module = class_from_module
+
 
 def property_from_module(path: str) -> typing.Any:
     """

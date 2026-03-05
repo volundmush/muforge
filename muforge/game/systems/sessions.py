@@ -1,22 +1,33 @@
-import weakref
-import uuid
-import muforge
 import asyncio
+import uuid
+import weakref
 from datetime import datetime, timezone
 
-from muforge.shared.events.messages import Text, Line
+import muforge
+from muforge.shared.events.messages import Line, Text
+from muforge.shared.models.pcs import PCModel
+from muforge.shared.models.users import UserModel
+
 
 class Session:
+    __slots__ = (
+        "user",
+        "pc",
+        "puppet",
+        "created_at",
+        "last_active_at",
+        "subscriptions",
+        "active",
+    )
 
-    def __init__(self, pc: "PlayerCharacter"):
-        pc.session = self
+    def __init__(self, user: UserModel, pc: PCModel):
+        self.user = user
         self.pc = pc
         self.puppet = pc
         self.created_at = datetime.now(timezone.utc)
         self.last_active_at = datetime.now(timezone.utc)
         self.subscriptions: list[asyncio.Queue] = []
         self.active = True
-        self.user = muforge.USERS.get(pc.user_id)
 
     async def send_event(self, event) -> None:
         for q in self.subscriptions:
@@ -24,7 +35,7 @@ class Session:
 
     async def send_line(self, text: str) -> None:
         await self.send_event(Line(message=text))
-    
+
     async def send_text(self, text: str) -> None:
         await self.send_event(Text(message=text))
 
@@ -34,24 +45,24 @@ class Session:
 
     def is_switched(self) -> bool:
         return self.puppet is not self.pc
-    
+
     async def execute_command(self, command: str) -> None | dict:
         self.last_active_at = datetime.now(timezone.utc)
         return await self.puppet.execute_command(command)
-    
+
     def subscribe(self) -> asyncio.Queue:
         """Create a new queue for this character and add it to the subscription list."""
         q = asyncio.Queue()
         self.subscriptions.append(q)
         return q
-    
+
     def unsubscribe(self, q: asyncio.Queue):
         """Remove the given queue from this session's subscription list."""
         try:
             self.subscriptions.remove(q)
         except ValueError:
             pass
-    
+
     async def start(self):
         """
         Start the session. Should do login things.

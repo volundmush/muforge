@@ -56,3 +56,7 @@ config/user*.toml
 config/secret*.toml
 
 *.pem
+
+netrhost.db.flat
+
+test.py
