@@ -1,19 +1,36 @@
-import muforge
 import asyncio
 import tomllib
-
-from lark import Lark
 from pathlib import Path
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
-from fastapi.middleware.cors import CORSMiddleware
 
+import asyncpg
+import orjson
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from hypercorn import Config
 from hypercorn.asyncio import serve
+from lark import Lark
 
+import muforge
 from muforge.shared.application import Application as OldApplication
 from muforge.shared.utils import callables_from_module, property_from_module
+
+
+def decode_json(data: bytes):
+    decoded = orjson.loads(data)
+    return decoded
+
+
+async def init_connection(conn: asyncpg.Connection):
+    for scheme in ("json", "jsonb"):
+        await conn.set_type_codec(
+            scheme,  # The PostgreSQL type to target.
+            encoder=lambda v: orjson.dumps(v).decode("utf-8"),
+            decoder=decode_json,
+            schema="pg_catalog",
+            format="text",
+        )
 
 
 class Application(OldApplication):
@@ -23,6 +40,11 @@ class Application(OldApplication):
         super().__init__()
         self.fastapi_config = None
         self.fastapi_instance = None
+
+    async def setup_asyncpg(self):
+        settings = muforge.SETTINGS["POSTGRESQL"]
+        pool = await asyncpg.create_pool(init=init_connection, **settings)
+        muforge.PGPOOL = pool
 
     async def setup_commands(self):
         for k, v in muforge.SETTINGS["GAME"]["commands"].items():
@@ -76,7 +98,6 @@ class Application(OldApplication):
         async def root():
             return render_index()
 
-
         @app.get("/index.html", response_class=HTMLResponse)
         async def index_html():
             return render_index()
@@ -110,7 +131,7 @@ class Application(OldApplication):
         if objects_path.exists():
             with open(objects_path, "rb") as f:
                 data = tomllib.load(f)
-    
+
     async def setup_typeclasses(self):
         typeclasses = muforge.SETTINGS["GAME"].get("typeclasses", dict())
         for k, v in typeclasses.items():
@@ -124,6 +145,7 @@ class Application(OldApplication):
         await super().setup()
         await self.setup_game_data()
         await self.setup_lark()
+        await self.setup_asyncpg()
         await self.setup_fastapi()
         await self.setup_commands()
         await self.setup_typeclasses()
@@ -139,9 +161,35 @@ class Application(OldApplication):
             muforge.LISTENERS[k] = listener
             for table in listener.tables:
                 muforge.LISTENERS_TABLE[table].append(listener)
-        
+
         await self.setup_load_database()
 
+    async def handle_postgre_notification(self, conn, pid, channel, payload):
+        decoded = orjson.loads(payload)
+        args = [decoded["table"], decoded["id"]]
+
+        if not (listeners := muforge.LISTENERS_TABLE.get(decoded["table"], [])):
+            return
+
+        match decoded["operation"]:
+            case "UPDATE":
+                for listener in listeners:
+                    await listener.on_update(*args)
+            case "INSERT":
+                for listener in listeners:
+                    await listener.on_insert(*args)
+            case "DELETE":
+                for listener in listeners:
+                    await listener.on_delete(*args)
+
+    async def postgre_listener(self):
+        async with muforge.PGPOOL.acquire() as conn:
+            await conn.add_listener("table_changes", self.handle_postgre_notification)
+            while True:
+                try:
+                    await asyncio.sleep(10)
+                except asyncio.CancelledError:
+                    break
 
     async def system_pinger(self):
         from muforge.shared.events.system import SystemPing
@@ -156,5 +204,5 @@ class Application(OldApplication):
 
     async def start(self):
         self.task_group.create_task(serve(self.fastapi_instance, self.fastapi_config))
-        #self.task_group.create_task(self.postgre_listener())
+        self.task_group.create_task(self.postgre_listener())
         self.task_group.create_task(self.system_pinger())
