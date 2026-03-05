@@ -10,13 +10,12 @@ from muforge.shared.utils import crypt_context
 
 from ..db import auth as auth_db
 from ..db import users as users_db
-from .utils import get_real_ip
 
 router = APIRouter()
 
 
 async def handle_login(request: Request, username: str, password: str) -> TokenResponse:
-    ip = get_real_ip(request)
+    ip = request.client.host
     user_agent = request.headers.get("User-Agent", None)
 
     result = await auth_db.authenticate_user(username, password, ip, user_agent)

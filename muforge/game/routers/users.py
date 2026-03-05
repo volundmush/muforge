@@ -54,3 +54,37 @@ async def get_user_characters(
 
     characters = pcs_db.list_pcs_user(target_user)
     return streaming_list(characters)
+
+
+@router.get("/{user_id}/events")
+async def get_user_events(
+    user_id: uuid.UUID, user: Annotated[UserModel, Depends(get_current_user)]
+):
+    if user.id != user_id and user.admin_level < 10:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions."
+        )
+
+    started = False
+    if not (session := muforge.USER_SESSIONS.get(user_id, None)):
+        session_class = muforge.CLASSES["user_session"]
+        session = session_class(user)
+        muforge.USER_SESSIONS[user_id] = session
+        started = True
+
+    async def event_generator():
+        queue = session.subscribe()
+        graceful = False
+        try:
+            if started:
+                await session.start()
+            # blocks until a new event
+            while item := await queue.get():
+                yield f"event: {item.__class__.__name__}\ndata: {item.model_dump_json()}\n\n"
+            graceful = True
+        finally:
+            session.unsubscribe(queue)
+            if not session.subscriptions and session.active:
+                await session.stop(graceful=graceful)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

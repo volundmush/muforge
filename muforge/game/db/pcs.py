@@ -6,14 +6,14 @@ from asyncpg.exceptions import UniqueViolationError
 from fastapi import HTTPException, status
 
 import muforge
+from muforge.shared.models.pcs import ActiveAs, PCModel
 from muforge.shared.models.users import UserModel
-from muforge.shared.models.pcs import PCModel
 
 from .base import from_pool, stream, transaction
 
 
 @from_pool
-async def find_character_name(conn: Connection, name: str) -> PCModel:
+async def find_pc_name(conn: Connection, name: str) -> PCModel:
     query = "SELECT * FROM pcs WHERE name = $1 AND deleted_at IS NULL"
     row = await conn.fetchrow(query, name)
     if row is None:
@@ -24,9 +24,7 @@ async def find_character_name(conn: Connection, name: str) -> PCModel:
 
 
 @from_pool
-async def find_character_id(
-    conn: Connection, character_id: uuid.UUID
-) -> PCModel:
+async def find_pc_id(conn: Connection, character_id: uuid.UUID) -> PCModel:
     query = "SELECT * FROM pcs WHERE id = $1"
     row = await conn.fetchrow(query, character_id)
     if row is None:
@@ -37,7 +35,7 @@ async def find_character_id(
 
 
 @stream
-async def list_characters(
+async def list_pcs(
     conn: Connection,
 ) -> typing.AsyncGenerator[PCModel, None]:
     query = "SELECT * FROM pcs"
@@ -47,7 +45,7 @@ async def list_characters(
 
 
 @stream
-async def list_characters_user(
+async def list_pcs_user(
     conn: Connection, user: UserModel
 ) -> typing.AsyncGenerator[PCModel, None]:
     query = "SELECT * FROM pcs WHERE user_id = $1 AND deleted_at IS NULL"
@@ -56,15 +54,14 @@ async def list_characters_user(
 
 
 @from_pool
-async def create_character(
-    conn: Connection, user: UserModel, name: str
-) -> PCModel:
+async def create_pc(conn: Connection, user: UserModel, name: str) -> PCModel:
     query = "INSERT INTO pcs (name, user_id) VALUES ($1, $2) RETURNING *"
     try:
         row = await conn.fetchrow(query, name, user.id)
     except UniqueViolationError:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Player Character name already in use"
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Player Character name already in use",
         )
     return PCModel(**row)
 

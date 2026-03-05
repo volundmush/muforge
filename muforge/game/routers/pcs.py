@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 import muforge
 from muforge.game.db import pcs as pcs_db
-from muforge.shared.models.pcs import ActiveAs, CharacterCreate, CharacterModel
+from muforge.shared.models.pcs import ActiveAs, CharacterCreate, PCModel
 from muforge.shared.models.users import UserModel
 
 from .utils import get_acting_character, get_current_user, streaming_list
@@ -16,33 +16,40 @@ from .utils import get_acting_character, get_current_user, streaming_list
 router = APIRouter()
 
 
-@router.get("/", response_model=typing.List[CharacterModel])
-async def get_characters(user: Annotated[UserModel, Depends(get_current_user)]):
+@router.get("/", response_model=typing.List[PCModel])
+async def get_pcs(user: Annotated[UserModel, Depends(get_current_user)]):
     if not user.admin_level > 0:
         raise HTTPException(
             status_code=403, detail="You do not have permission to view all characters."
         )
 
-    stream = characters_db.list_characters()
+    stream = pcs_db.list_pcs()
 
     return streaming_list(stream)
 
 
-@router.get("/{character_id}", response_model=CharacterModel)
-async def get_character(
-    user: Annotated[UserModel, Depends(get_current_user)], character_id: uuid.UUID
-):
-    character = await characters_db.find_character_id(character_id)
-    if character.user_id != user.id and user.admin_level == 0:
-        raise HTTPException(status_code=403, detail="Character does not belong to you.")
-    return character
+@router.get("/active", response_model=typing.List[PCModel])
+async def get_active_pc(user: Annotated[UserModel, Depends(get_current_user)]):
+    pass
 
 
-@router.get("/{character_id}/active", response_model=ActiveAs)
-async def get_character_active_as(
-    user: Annotated[UserModel, Depends(get_current_user)], character_id: uuid.UUID
+@router.get("/{pc_id}", response_model=PCModel)
+async def get_pc(
+    user: Annotated[UserModel, Depends(get_current_user)], pc_id: uuid.UUID
 ):
-    acting = await get_acting_character(user, character_id)
+    pc = await pcs_db.find_pc_id(pc_id)
+    if pc.user_id != user.id and user.admin_level < 1:
+        raise HTTPException(
+            status_code=403, detail="Player Character does not belong to you."
+        )
+    return pc
+
+
+@router.get("/{pc_id}/active", response_model=ActiveAs)
+async def get_pc_active_as(
+    user: Annotated[UserModel, Depends(get_current_user)], pc_id: uuid.UUID
+):
+    acting = await get_acting_pc(user, pc_id)
     return acting
 
 
@@ -51,14 +58,13 @@ async def stream_character_events(
     user: Annotated[UserModel, Depends(get_current_user)], character_id: uuid.UUID
 ):
     # We don't use it; but this verifies that user can control character.
-    acting = await get_acting_character(user, character_id)
+    acting = await get_acting_pc(user, character_id)
 
-    character = muforge.ENTITIES.get(character_id)
     started = False
-    if not (session := muforge.SESSIONS.get(character_id, None)):
-        session_class = muforge.CLASSES["session"]
-        session = session_class(character)
-        muforge.SESSIONS[character_id] = session
+    if not (session := muforge.PC_SESSIONS.get(character_id, None)):
+        session_class = muforge.CLASSES["pc_session"]
+        session = session_class(acting)
+        muforge.PC_SESSIONS[character_id] = session
         started = True
 
     async def event_generator():

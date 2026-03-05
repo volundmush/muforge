@@ -1,6 +1,6 @@
-from collections import defaultdict
-import uuid
 import typing
+import uuid
+from collections import defaultdict
 
 SETTINGS = dict()
 APP = None
@@ -18,23 +18,12 @@ LISTENERS_TABLE = dict()
 PORTAL_COMMANDS = dict()
 PORTAL_COMMANDS_PRIORITY = defaultdict(list)
 
-GAME_COMMANDS = dict()
-GAME_COMMANDS_PRIORITY = defaultdict(list)
+USER_COMMANDS = dict()
+USER_COMMANDS_PRIORITY = defaultdict(list)
 
-LOCATIONS: dict[str, "Location"] = dict()
-LOCATION_CLASSES = dict()
-LOCATION_COMPONENTS = dict()
+PC_COMMANDS = dict()
+PC_COMMANDS_PRIORITY = defaultdict(list)
 
-USERS: dict[uuid.UUID, "UserModel"] = dict()
 
-ENTITIES: dict[uuid.UUID, "BaseEntity"] = dict()
-ENTITY_CLASSES = dict()
-ENTITY_COMPONENTS = dict()
-
-ENTITY_TYPE_INDEX: dict[str, set["BaseEntity"]] = defaultdict(set)
-
-ATTRIBUTES = dict()
-NODES = dict()
-ROOMS = dict()
-
-SESSIONS: dict[uuid.UUID, "GameSession"] = dict()
+PC_SESSIONS: dict[uuid.UUID, "PCSession"] = dict()
+USER_SESSIONS: dict[uuid.UUID, "UserSession"] = dict()

@@ -45,17 +45,6 @@ def streaming_list(
     )
 
 
-def get_real_ip(request: Request):
-    """
-    If the request is behind a trusted proxy, then we'll trust X-Forwarded-For and use the first IP in the list.
-    trusted proxies are in muforge.SETTINGS["GAME"]["networking"]["trusted_proxy_ips"]
-    """
-    ip = request.client.host
-    if ip in muforge.SETTINGS["GAME"]["networking"]["trusted_proxy_ips"]:
-        ip = request.headers.get("X-Forwarded-For", ip).split(",")[0].strip()
-    return ip
-
-
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> UserModel:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -72,16 +61,17 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> Use
     except jwt.PyJWTError as e:
         raise credentials_exception
 
-    user = muforge.USERS.get(uuid.UUID(user_id), None)
+    async with muforge.PGPOOL.acquire() as conn:
+        user = await conn.fetchrow("SELECT * FROM users WHERE id = $1", user_id)
 
     if user is None:
         raise credentials_exception
 
-    return user
+    return UserModel(**user)
 
 
 async def get_acting_character(user: UserModel, character_id: uuid.UUID) -> ActiveAs:
-    character = await characters_db.find_character_id(character_id)
+    character = await pcs_db.find_pc_id(character_id)
     if character.user_id != user.id:
         raise HTTPException(status_code=403, detail="Character does not belong to you.")
 

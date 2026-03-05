@@ -11,6 +11,9 @@ from fastapi.staticfiles import StaticFiles
 from hypercorn import Config
 from hypercorn.asyncio import serve
 from lark import Lark
+from starlette.middleware.gzip import GZipMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 import muforge
 from muforge.shared.application import Application as OldApplication
@@ -80,6 +83,12 @@ class Application(OldApplication):
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+        # Compression (not enabled by default in FastAPI).
+        app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+        # Proxy headers first so downstream sees real client info.
+        app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="127.0.0.1,10.0.0.0/8")
 
         cwd = Path.cwd()
         static_dir = cwd / "static"
