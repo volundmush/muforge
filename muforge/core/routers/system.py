@@ -1,16 +1,14 @@
 from typing import Annotated
 
 import pydantic
-
-from rich.text import Text
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from rich.errors import MarkupError
-from fastapi import APIRouter, Depends, Body, HTTPException, Request
-
-from .utils import (
-    get_current_user,
-)
+from rich.text import Text
 
 from muforge.shared.models.users import UserModel
+from muforge.utils.depends import (
+    get_current_user,
+)
 
 router = APIRouter()
 

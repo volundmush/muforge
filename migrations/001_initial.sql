@@ -103,7 +103,8 @@ CREATE TABLE pcs (
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at     TIMESTAMPTZ NULL DEFAULT NULL,
     last_active_at TIMESTAMPTZ NULL DEFAULT NULL,
-    approved_at TIMESTAMPTZ NULL
+    approved_at TIMESTAMPTZ NULL,
+    data JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
 CREATE UNIQUE INDEX ux_pcs__name_not_deleted ON pcs (name) WHERE deleted_at IS NULL;
@@ -164,66 +165,70 @@ CREATE TABLE actname (
 CREATE UNIQUE INDEX ux_actname__actduo_id_name ON actname (actduo_id, name);
 CREATE INDEX idx_actname__actduo_id ON actname (actduo_id);
 
--- The faction system.
-CREATE TABLE factions (
+-- The organization system. Namespaces are used to group them by system, such as factions or themes.
+CREATE TABLE organizations (
     id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+    namespace VARCHAR(100) NOT NULL,
     name CITEXT NOT NULL,
+    category VARCHAR(100) DEFAULT 'Uncategorized',
     abbreviation CITEXT NULL,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at     TIMESTAMPTZ NULL DEFAULT NULL,
+    approved_at    TIMESTAMPTZ NUL DEFAULT NULL,
     hidden         BOOLEAN NOT NULL DEFAULT TRUE,
     private        BOOLEAN NOT NULL DEFAULT TRUE,
     member_permissions    JSONB NOT NULL DEFAULT '[]'::jsonb
 );
 
-CREATE UNIQUE INDEX ux_factions__name_not_deleted ON factions (name) WHERE deleted_at IS NULL;
-CREATE INDEX idx_factions__abbreviation ON factions (abbreviation);
+CREATE UNIQUE INDEX ux_organizations__name_not_deleted ON organizations (namespace, name) WHERE deleted_at IS NULL;
+CREATE INDEX idx_organizations__abbreviation ON organizations (namespace, abbreviation);
 
-CREATE TABLE faction_ranks (
+CREATE TABLE organization_ranks (
     id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
-    faction_id UUID NOT NULL REFERENCES factions(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     value INT NOT NULL,
     name TEXT NULL,
     permissions    JSONB NOT NULL DEFAULT '[]'::jsonb
 );
 
-CREATE UNIQUE INDEX ux_faction_ranks__faction_id_value ON faction_ranks (faction_id, value);
-CREATE INDEX idx_faction_ranks__faction_id ON faction_ranks (faction_id);
+CREATE UNIQUE INDEX ux_organization_ranks__organization_id_value ON organization_ranks (organization_id, value);
+CREATE INDEX idx_organization_ranks__organization_id ON organization_ranks (organization_id);
 
-CREATE TABLE faction_members (
-    faction_id UUID NOT NULL REFERENCES factions(id) ON DELETE CASCADE,
+CREATE TABLE organization_members (
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     pc_id UUID NOT NULL REFERENCES pcs(id) ON DELETE RESTRICT,
-    rank_id UUID NOT NULL REFERENCES faction_ranks(id) ON DELETE RESTRICT,
+    rank_id UUID NOT NULL REFERENCES organization_ranks(id) ON DELETE RESTRICT,
     permissions JSONB NOT NULL DEFAULT '[]'::jsonb,
     title TEXT NULL,
-    PRIMARY KEY (faction_id, pc_id)
+    PRIMARY KEY (organization_id, pc_id)
 );
 
-CREATE INDEX idx_faction_members__pc_id ON faction_members (pc_id);
-CREATE INDEX idx_faction_members__rank_id ON faction_members (rank_id);
+CREATE INDEX idx_organization_members__pc_id ON organization_members (pc_id);
+CREATE INDEX idx_organization_members__rank_id ON organization_members (rank_id);
 
 --- Message Resource
 CREATE TABLE msg_resource_category (
     id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
-    faction_id UUID NULL REFERENCES factions(id) ON DELETE RESTRICT,
+    organization_id UUID NULL REFERENCES organizations(id) ON DELETE RESTRICT,
     ic BOOLEAN NOT NULL DEFAULT FALSE
 );
 
-CREATE UNIQUE INDEX ux_msg_resource_category__faction_id_ic
-    ON msg_resource_category (faction_id, ic)
-    WHERE faction_id IS NOT NULL;
+CREATE UNIQUE INDEX ux_msg_resource_category__organization_id_ic
+    ON msg_resource_category (organization_id, ic)
+    WHERE organization_id IS NOT NULL;
 
 CREATE UNIQUE INDEX ux_msg_resource_category__ic_public
     ON msg_resource_category (ic)
-    WHERE faction_id IS NULL;
+    WHERE organization_id IS NULL;
 
-CREATE INDEX idx_msg_resource_category__faction_id ON msg_resource_category (faction_id);
+CREATE INDEX idx_msg_resource_category__organization_id ON msg_resource_category (organization_id);
 
 -- BB System
 CREATE TABLE bbs_boards (
     id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
     resource_category_id UUID NOT NULL REFERENCES msg_resource_category(id) ON DELETE RESTRICT,
+    category VARCHAR(100) NOT NULL DEFAULT 'Uncategorized',
     name TEXT NOT NULL,
     number INT NOT NULL,
     locks    JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -301,9 +306,9 @@ CREATE TABLE location_actions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ NULL,
-    scene_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     ic BOOLEAN NOT NULL DEFAULT FALSE,
-    system VARCHAR(10) NOT NULL DEFAULT ''
+    system VARCHAR(10) NOT NULL DEFAULT '',
+    data JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
 CREATE INDEX idx_location_actions__instance_id ON location_actions (instance_id);
@@ -314,11 +319,14 @@ CREATE INDEX idx_location_actions__created_at ON location_actions (created_at);
 CREATE TABLE channel (
     id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
     resource_category_id UUID NOT NULL REFERENCES msg_resource_category(id) ON DELETE RESTRICT,
+    category VARCHAR(100) DEFAULT 'Uncategorized',
     name CITEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ NULL,
-    locks JSONB NOT NULL DEFAULT '{}'::jsonb
+    locks JSONB NOT NULL DEFAULT '{}'::jsonb,
+    data JSONB NOT NULL DEFAULT '{}'::jsonb,
+    uses_character BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE UNIQUE INDEX ux_channel__resource_category_id_name ON channel (resource_category_id, name) WHERE deleted_at IS NULL;
@@ -332,41 +340,29 @@ CREATE TABLE channel_message (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ NULL,
-    scene_enabled BOOLEAN NOT NULL DEFAULT TRUE
+    locks JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
 CREATE INDEX idx_channel_message__channel_id ON channel_message (channel_id);
 CREATE INDEX idx_channel_message__author_id ON channel_message (author_id);
 CREATE INDEX idx_channel_message__created_at ON channel_message (created_at);
 
--- Theme system
-CREATE TABLE theme (
+CREATE TABLE channel_subscription (
     id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
-    name CITEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ NULL,
-    description TEXT NULL,
-    approved_at TIMESTAMPTZ NULL,
-    data JSONB NOT NULL DEFAULT '{}'::JSONB
+    channel_id UUID NOT NULL REFERENCES channel(id) ON DELETE CASCADE,
+    subscriber_id UUID NOT NULL REFERENCES actduo(id) ON DELETE CASCADE,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    gagged BOOLEAN NOT NULL DEFAULT FALSE,
+    data JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
-CREATE UNIQUE INDEX ux_theme__name_not_deleted ON theme (name) WHERE deleted_at IS NULL;
-CREATE INDEX idx_theme__approved_at ON theme (approved_at);
-
-CREATE TABLE theme_members (
-    theme_id UUID NOT NULL REFERENCES theme(id) ON DELETE CASCADE,
-    pc_id UUID NOT NULL REFERENCES pcs(id) ON DELETE CASCADE,
-    member_type INT NOT NULL DEFAULT 0,
-    PRIMARY KEY (theme_id, pc_id)
-);
-
-CREATE INDEX idx_theme_members__pc_id ON theme_members (pc_id);
+CREATE UNIQUE INDEX ux_channel_subscription__channel_id_subscriber_id ON channel_subscription (channel_id, subscriber_id);
 
 -- Plot System
 CREATE TABLE plot (
     id BIGSERIAL NOT NULL PRIMARY KEY,
     name CITEXT NOT NULL,
+    category VARCHAR(100) DEFAULT 'Uncategorized',
     description TEXT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

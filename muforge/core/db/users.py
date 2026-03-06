@@ -4,9 +4,18 @@ import uuid
 from asyncpg import Connection
 from fastapi import HTTPException, status
 
-from muforge.shared.models import UserModel
+import pydantic
 
-from .base import from_pool, stream
+from muforge.utils.database import from_pool, stream
+
+from .fields import username
+from .mixins import SoftDeleteMixin, TimestampMixin
+
+
+class UserModel(SoftDeleteMixin):
+    id: uuid.UUID
+    username: username
+    admin_level: int
 
 
 @from_pool

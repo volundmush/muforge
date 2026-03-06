@@ -1,10 +1,26 @@
 import asyncio
 from loguru import logger
-
-from .service import Service
-from .utils import callables_from_module, property_from_module
+import importlib
+import semver
 
 import muforge
+from .utils.misc import callables_from_module, property_from_module
+
+class Service:
+    load_priority: int = 0
+    start_priority: int = 0
+
+    def is_valid(self):
+        return True
+
+    async def setup(self):
+        pass
+
+    async def run(self):
+        pass
+
+    def shutdown(self):
+        pass
 
 class Application:
     # name will be either "portal" or "game"
@@ -14,13 +30,30 @@ class Application:
         self.valid_services: list[Service] = []
         self.shutdown_event = asyncio.Event()
         self.task_group = None
+        self.plugin_load_order = list()
 
     async def setup_events(self):
         for k, v in muforge.SETTINGS.get("EVENTS", dict()).items():
             for name, cls in callables_from_module(v).items():
                 muforge.EVENTS[name] = cls
 
+    async def setup_plugins(self):
+        for plugin_path in muforge.PLUGIN_PATHS:
+            try:
+                plugin_module = importlib.import_module(plugin_path)
+            except ImportError as e:
+                logger.error(f"Failed to import plugin module {plugin_path}: {e}")
+                raise e
+            try:
+                plugin_class = property_from_module(plugin_module.plugin)
+            except AttributeError as e:
+                logger.error(f"Plugin module {plugin_path} does not have a 'plugin' attribute: {e}")
+                raise e
+            plugin = plugin_class(self)
+            muforge.PLUGINS[plugin.slug()] = plugin
+
     async def setup(self):
+        await self.setup_plugins()
         await self.setup_events()
         await self.setup_services()
 

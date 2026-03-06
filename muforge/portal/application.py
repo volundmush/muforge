@@ -4,7 +4,7 @@ import sys
 import traceback
 
 import muforge
-from muforge.shared.application import Application as _Application
+from muforge.application import Application as _Application
 from muforge.shared.utils import callables_from_module
 from loguru import logger
 

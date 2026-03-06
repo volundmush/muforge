@@ -24,9 +24,12 @@ dependencies = [
     "passlib",
     "argon2-cffi",
     "asyncpg",
+    "alembic",
+    "sqlalchemy",
     "httpx[http2]",
     "httpx-sse",
     "lark",
+    "semver",
     "aiomudtelnet @ git+https://github.com/volundmush/aiomudtelnet@main"
 ]
 # This creates the `muforge` command on install

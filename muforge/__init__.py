@@ -4,6 +4,8 @@ from collections import defaultdict
 
 SETTINGS = dict()
 APP = None
+PLUGINS: dict[str, "BasePlugin"] = dict()
+PLUGIN_PATHS = list()
 CLASSES = dict()
 SSL_CONTEXT = None
 SERVICES = dict()
@@ -23,7 +25,6 @@ USER_COMMANDS_PRIORITY = defaultdict(list)
 
 PC_COMMANDS = dict()
 PC_COMMANDS_PRIORITY = defaultdict(list)
-
 
 PC_SESSIONS: dict[uuid.UUID, "PCSession"] = dict()
 USER_SESSIONS: dict[uuid.UUID, "UserSession"] = dict()

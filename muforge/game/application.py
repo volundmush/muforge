@@ -14,10 +14,11 @@ from lark import Lark
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from fastapi import Depends, FastAPI, Request, Response
 
 import muforge
-from muforge.shared.application import Application as OldApplication
-from muforge.shared.utils import callables_from_module, property_from_module
+from muforge.application import Application as OldApplication
+from muforge.utils.misc import callables_from_module, property_from_module
 
 
 def decode_json(data: bytes):
@@ -89,6 +90,36 @@ class Application(OldApplication):
 
         # Proxy headers first so downstream sees real client info.
         app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="127.0.0.1,10.0.0.0/8")
+
+        @app.middleware("http")
+        async def request_id_middleware(
+            request: Request, call_next: Callable[[Request], Awaitable[Response]]
+        ) -> Response:
+            incoming = request.headers.get("X-Request-ID")
+            request_id = incoming or uuid4().hex
+            request.state.request_id = request_id
+            response = await call_next(request)
+            response.headers.setdefault("X-Request-ID", request_id)
+            return response
+
+        @app.middleware("http")
+        async def security_headers_middleware(
+            request: Request, call_next: Callable[[Request], Awaitable[Response]]
+        ) -> Response:
+            response = await call_next(request)
+            # Add conservative defaults if not already set.
+            response.headers.setdefault("X-Content-Type-Options", "nosniff")
+            response.headers.setdefault(
+                "Referrer-Policy", "strict-origin-when-cross-origin"
+            )
+            response.headers.setdefault("X-Frame-Options", "DENY")
+            response.headers.setdefault(
+                "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
+            )
+            response.headers.setdefault(
+                "Strict-Transport-Security", "max-age=63072000; includeSubDomains"
+            )
+            return response
 
         cwd = Path.cwd()
         static_dir = cwd / "static"

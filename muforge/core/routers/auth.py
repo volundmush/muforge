@@ -4,9 +4,11 @@ import jwt
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
+
 import muforge
-from muforge.shared.models.auth import RefreshTokenModel, TokenResponse, UserLogin
-from muforge.shared.utils import crypt_context
+from ..db.auth import RefreshTokenModel, TokenResponse, UserLogin
+
+from ..utils import crypt_context
 
 from ..db import auth as auth_db
 from ..db import users as users_db

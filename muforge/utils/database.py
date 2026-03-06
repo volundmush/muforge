@@ -1,5 +1,6 @@
-from functools import wraps
 import typing
+from functools import wraps
+
 import muforge  # assuming this is where PGPOOL is defined
 
 

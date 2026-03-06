@@ -6,12 +6,13 @@ CMD_MATCH = re.compile(
 )
 
 
-class Command:
+class BaseCommand:
     """
     Help not implemented for this command. Contact staff!
     """
 
     name = "!NOTSET!"
+    # If help_category is None, the command will not be listed in the help system.
     help_category = "Uncategorized"
     priority = 0
     aliases = dict()
@@ -19,9 +20,6 @@ class Command:
     # Set this to true if you want the command to exist but never reach the parser.
     # this could be helpful for creating help files or meta-topics.
     unusable = False
-
-    class Error(Exception):
-        pass
 
     @classmethod
     def check_match(cls, enactor: "ActingAs", command: str) -> typing.Optional[str]:
@@ -49,6 +47,7 @@ class Command:
     def check_access(cls, enactor: "ActingAs") -> bool:
         """
         Check if the user should have access to the command.
+        If they don't, they don't see it at all.
 
         Args:
             enactor: The user to check access for.
@@ -68,7 +67,6 @@ class Command:
         self.lsargs = match_data.get("lsargs", "").strip()
         self.rsargs = match_data.get("rsargs", "").strip()
         self.args_array = self.args.split()
-        
 
     def can_execute(self) -> bool:
         """
@@ -79,6 +77,12 @@ class Command:
     async def execute(self) -> dict:
         """
         Execute the command.
+
+        Returns:
+            dict: The result of the command execution.
+
+        Raises:
+            HTTPException: If the command cannot be executed.
         """
         if not self.can_execute():
             return {"ok": False, "error": "Cannot execute command"}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from muforge.shared.boot import startup
+from muforge.boot import startup
 
 if __name__ == "__main__":
     startup("game")

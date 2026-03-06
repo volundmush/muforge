@@ -4,13 +4,25 @@ import uuid
 from asyncpg import Connection
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import HTTPException, status
+import pydantic
 
 import muforge
-from muforge.shared.models.pcs import ActiveAs, PCModel
-from muforge.shared.models.users import UserModel
 
-from .base import from_pool, stream, transaction
+from muforge.utils.database import from_pool, stream, transaction
 
+from .fields import pc_name
+from .mixins import SoftDeleteMixin
+from .users import UserModel
+
+
+class PCModel(SoftDeleteMixin):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    name: pc_name
+
+
+class CharacterCreate(pydantic.BaseModel):
+    name: pc_name
 
 @from_pool
 async def find_pc_name(conn: Connection, name: str) -> PCModel:
