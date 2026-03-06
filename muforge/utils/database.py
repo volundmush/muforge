@@ -52,3 +52,13 @@ def from_pool(func):
             return await func(conn, *args, **kwargs)
 
     return wrapper
+
+
+INIT_SQL = """
+CREATE TABLE IF NOT EXISTS plugin_migrations (
+    plugin_slug VARCHAR(100) NOT NULL,
+    migration_name VARCHAR(100) NOT NULL,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (plugin_slug, migration_name)
+);
+"""

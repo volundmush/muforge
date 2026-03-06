@@ -1,4 +1,6 @@
 import asyncio
+import sys
+import aiodns
 from loguru import logger
 import importlib
 import semver
@@ -22,7 +24,7 @@ class Service:
     def shutdown(self):
         pass
 
-class Application:
+class BaseApplication:
     # name will be either "portal" or "game"
     name: str = None
 
@@ -31,6 +33,12 @@ class Application:
         self.shutdown_event = asyncio.Event()
         self.task_group = None
         self.plugin_load_order = list()
+
+        self.resolver = None
+
+        if sys.platform != "win32":
+            loop = asyncio.get_event_loop()
+            self.resolver = aiodns.DNSResolver(loop=loop)
 
     async def setup_events(self):
         for k, v in muforge.SETTINGS.get("EVENTS", dict()).items():
@@ -51,7 +59,34 @@ class Application:
                 raise e
             plugin = plugin_class(self)
             muforge.PLUGINS[plugin.slug()] = plugin
+        
+        for k, v in muforge.PLUGINS.items():
+            logger.info(f"Found plugin {k} version {v.version()}.")
+            await v.pre_setup()
 
+        remaining = muforge.PLUGINS.copy()
+        
+        while len(remaining) > len(self.plugin_load_order):
+            to_pop = []
+            for slug, plugin in muforge.PLUGINS.items():
+                dependencies = plugin.depends()
+                for (check_slug, ver) in dependencies:
+                    if found := muforge.PLUGINS.get(check_slug, None):
+                        if not semver.match(found.version(), ver):
+                            logger.error(f"Plugin {slug} depends on plugin {check_slug} with version {ver}, but found version {found.version()}.")
+                            raise Exception(f"Plugin {slug} depends on plugin {check_slug} with version {ver}, but found version {found.version()}.")
+                    else:
+                        logger.error(f"Plugin {slug} depends on missing plugin {check_slug}.")
+                        raise Exception(f"Plugin {slug} depends on missing plugin {check_slug}.")
+                self.plugin_load_order.append(plugin)
+                to_pop.append(slug)
+                logger.info(f"Resolved dependencies for plugin {slug} version {plugin.version()}.")
+            for slug in to_pop:
+                remaining.pop(slug)
+        
+        for k, v in muforge.PLUGINS.items():
+            await v.post_setup()
+    
     async def setup(self):
         await self.setup_plugins()
         await self.setup_events()

@@ -11,6 +11,12 @@ class BasePlugin:
     """
     def __init__(self, app):
         self.app = app
+    
+    def name(self) -> str:
+        """
+        Returns the name of the plugin. This is just for displaying it in lists.
+        """
+        raise NotImplementedError
 
     def version(self) -> str:
         """
@@ -20,6 +26,10 @@ class BasePlugin:
         raise NotImplementedError
 
     def slug(self) -> str:
+        """
+        Returns the slug of the plugin. This is used for dependencies and should be unique and unchanging.
+        Should be lowercase and contain only letters, numbers, and underscores.
+        """
         raise NotImplementedError
 
     def game_migrations(self) -> list[tuple[str, typing.Any]]:
@@ -40,9 +50,36 @@ class BasePlugin:
         """
         return []
 
-    def game_routers(self) -> dict[str, typing.Any]:
+    def game_routers_v1(self) -> dict[str, typing.Any]:
         """
         Announces the routers for this plugin.
         The dictionary is in [prefix, router] format. routers are fastapi APIRouter objects.
         """
         return dict()
+
+    def game_static(self) -> str | None:
+        """
+        used by FastAPI's StaticFiles to serve static files for the game server.
+        Disabled by returning None. if str, it's the folder name. usually 'static'
+        """
+        return None
+
+    def game_lockfuncs(self) -> dict[str, typing.Any]:
+        """
+        Announces lockfuncs for this plugin.
+        The dictionary is in [name, func] format. funcs are callables that take a character and return a boolean.
+        """
+        return dict()
+    
+    async def pre_setup(self):
+        """
+        This is called before any dependency checks or exports are done. This might be done for customizing
+        what the plugin exports based on what other plugins are present.
+        """
+        pass
+
+    async def post_setup(self):
+        """
+        This is called after all dependency checks have been resolved.
+        """
+        pass
