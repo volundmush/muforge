@@ -34,6 +34,13 @@ class CorePlugin(BasePlugin):
     
     def game_lockfuncs(self) -> dict[str, typing.Any]:
         return dict()
+    
+    def portal_parsers(self):
+        from .portal_parsers.auth import LoginParser
+        from .portal_parsers.user import UserParser
+        from .portal_parsers.character import CharacterParser
+
+        return {"auth": LoginParser, "user": UserParser, "character": CharacterParser}
 
 
 plugin = CorePlugin

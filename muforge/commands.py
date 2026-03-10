@@ -10,7 +10,9 @@ class BaseCommand:
     """
     Help not implemented for this command. Contact staff!
     """
-
+    # The unique key for this command. This is used for identifying it,
+    # but also for overriding it with plugins.
+    key = "core/notset"
     name = "!NOTSET!"
     # If help_category is None, the command will not be listed in the help system.
     help_category = "Uncategorized"

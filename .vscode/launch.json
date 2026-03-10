@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "Python: muforge.game",
-  "type": "debugpy",
+      "type": "debugpy",
       "request": "launch",
       "module": "muforge.game",
       "cwd": "${workspaceFolder}",
@@ -11,7 +11,7 @@
     },
     {
       "name": "Python: muforge.portal",
-  "type": "debugpy",
+      "type": "debugpy",
       "request": "launch",
       "module": "muforge.portal",
       "cwd": "${workspaceFolder}",

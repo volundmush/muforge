@@ -1,6 +1,5 @@
 import muforge
 import asyncio
-import jwt
 import typing
 import time
 from datetime import datetime
@@ -13,93 +12,40 @@ from rich.table import Table
 from rich.box import ASCII2
 from httpx_sse import aconnect_sse
 import re
-from rich.color import ColorType
-from muforge.shared.models.auth import TokenResponse
-from aiomudtelnet import MudClientCapabilities
+from .link import ConnectionLink, LinkUpdate, LinkDisconnect, LinkText, LinkGMCP, LinkMSSP
 
 from dataclasses import dataclass, field
 
 _re_event = re.compile(r"event: (.+)\ndata: (.+)\n\n", re.MULTILINE)
 
 
-@dataclass(slots=True)
-class ClientHello:
-    userdata: dict[str, "Any"] = field(default_factory=dict)
-    capabilities: MudClientCapabilities = field(default_factory=MudClientCapabilities)
-
-
-@dataclass(slots=True)
-class ClientCommand:
-    text: str = ""
-
-
-@dataclass(slots=True)
-class ClientUpdate:
-    capabilities: dict[str, "Any"] = field(default_factory=dict)
-
-
-@dataclass(slots=True)
-class ClientDisconnect:
-    pass
-
-
-@dataclass(slots=True)
-class ClientGMCP:
-    package: str
-    data: dict
-
-
-def color_num_to_rich(color_num: int) -> ColorType:
-    match color_num:
-        case 0:
-            return ColorType.DEFAULT
-        case 1:
-            return ColorType.STANDARD
-        case 2:
-            return ColorType.EIGHT_BIT
-        case 3:
-            return ColorType.TRUECOLOR
-        case 4:
-            return ColorType.WINDOWS
-
-
 class BaseConnection:
     """
-    Base implementation of the glue between the Portal and the Game. This represents a single player connection, mapping
-    a protocol like telnet to a SurrealDB client connection.
+    This represents a single player connection, mapping a protocol like telnet to a SurrealDB client connection.
     """
 
-    def __init__(self):
-        self.session_name = None
-        self.host_names = list()
-        self.host_port = None
-        self.host_address = None
-        self.capabilities = MudClientCapabilities()
+    def __init__(self, service, link: ConnectionLink):
+        self.service = service
+        self.link = link
         self.task_group = None
-        self.user_input_queue = asyncio.Queue()
         self.console = Console(
             color_system="standard",
             file=self,
             record=True,
-            width=self.capabilities.width,
-            height=self.capabilities.height,
+            width=self.link.info.width,
+            height=self.link.info.height,
             emoji=False,
         )
-        self.console._color_system = color_num_to_rich(self.capabilities.color)
+        self.console._color_system = self.link.info.color
         self.parser_stack = list()
         self.client = None
-        self.jwt = None
-        self.payload: dict[str, "Any"] = dict()
         self.last_active_at = datetime.now()
-        self.refresh_token = None
         self.shutdown_event = asyncio.Event()
         self.shutdown_cause = None
 
     def get_headers(self) -> dict[str, str]:
         out = dict()
-        out["X-Forwarded-For"] = self.host_address
-        if self.jwt:
-            out["Authorization"] = f"Bearer {self.jwt}"
+        out["X-Forwarded-For"] = self.link.info.client_address
         return out
 
     def flush(self):
@@ -126,28 +72,27 @@ class BaseConnection:
     def make_table(self, *args, **kwargs) -> Table:
         base_kwargs = {
             "border_style": "magenta",
-            "width": self.capabilities.width,
+            "width": self.link.info.width,
             "highlight": True,
         }
-        match self.capabilities.encoding:
+        match self.link.info.encoding:
             case "ascii":
                 base_kwargs["box"] = ASCII2
                 base_kwargs["safe_box"] = True
             case "utf-8":
                 pass
-        if self.capabilities.screen_reader:
+        if self.link.info.screen_reader:
             base_kwargs["box"] = None
         base_kwargs.update(kwargs)
         return Table(*args, **base_kwargs)
 
-    async def setup(self):
-        pass
+    def start_tasks(self, tg):
+        tg.create_task(self.run_link())
 
     async def run(self):
         async with asyncio.TaskGroup() as tg:
             self.task_group = tg
-            tg.create_task(self.run_refresher())
-            await self.setup()
+            self.start_tasks(tg)
 
             await self.shutdown_event.wait()
             logger.info(
@@ -155,48 +100,51 @@ class BaseConnection:
             )
             raise asyncio.CancelledError()
 
-    color_types = {
-        0: "none",
-        1: "ansi16",
-        2: "xterm256",
-        3: "truecolor",
-        4: "windows",
-    }
-
     async def at_capability_change(self, capability: str, value):
         match capability:
             case "color":
                 await self.send_line(
-                    f"Capability change: {capability} -> {self.color_types[value]}"
+                    f"Capability change: {capability} -> {str(value)}"
                 )
             case _:
                 await self.send_line(f"Capability change: {capability} -> {value}")
 
         match capability:
             case "color":
-                self.console._color_system = color_num_to_rich(value)
+                self.console._color_system = value
             case "encoding":
                 if value == "utf-8":
                     self.console._emoji = True
+                elif value == "ascii":
+                    self.console._emoji = False
             case "height":
                 self.console.height = value
             case "width":
                 self.console.width = value
 
     async def send_text(self, text: str):
-        raise NotImplementedError
+        await self.link.outgoing_queue.put(LinkText(text))
 
-    async def send_gmcp(self, command: str, data: dict):
-        raise NotImplementedError
+    async def send_gmcp(self, package: str, data: dict):
+        await self.link.outgoing_queue.put(LinkGMCP(package, data))
 
-    async def send_mssp(self, data: dict[str, str]):
-        raise NotImplementedError
+    async def send_mssp(self, data: tuple[tuple[str, str], ...]):
+        await self.link.outgoing_queue.put(LinkMSSP(data))
 
     async def send_rich(self, *args, **kwargs):
         """
         Sends a Rich message to the client.
         """
         out = self.print(*args, **kwargs)
+        await self.send_text(out)
+    
+    async def send_rich_line(self, *args, **kwargs):
+        """
+        Sends a Rich message to the client, ensuring it ends with a newline.
+        """
+        out = self.print(*args, **kwargs)
+        if not out.endswith("\r\n"):
+            out += "\r\n"
         await self.send_text(out)
 
     async def send_line(self, text: str):
@@ -227,48 +175,49 @@ class BaseConnection:
             self.shutdown_cause = "no_parser"
             self.shutdown_event.set()
 
-    async def at_receive_line(self, text: str):
-        if text != "IDLE":
-            await self.user_input_queue.put(ClientCommand(text))
+    async def at_receive_text(self, text: str):
+        if not self.parser_stack:
+            self.shutdown_cause = "no_parser"
+            self.shutdown_event.set()
+            return
+        parser = self.parser_stack[-1]
+        try:
+            await parser.handle_command(text)
+        except MarkupError as e:
+            await self.send_rich(
+                f"[bold red]Error parsing markup:[/] {escape(str(e))}"
+            )
+        except Exception as e:
+            await self.send_rich(
+                f"[bold red]An unexpected error occurred:[/] {escape(str(e))}"
+            )
 
-    async def at_receive_gmcp(self, command: str, data: dict):
-        await self.user_input_queue.put(ClientGMCP(command, data))
-
-    async def at_receive_command(self, byte: int):
+    async def at_receive_gmcp(self, package: str, data: dict):
         pass
 
-    async def handle_user_input(self, data):
+    async def handle_incoming_event(self, data):
         match data:
-            case ClientCommand():
-                if not self.parser_stack:
-                    return
-                parser = self.parser_stack[-1]
-                try:
-                    await parser.handle_command(data.text)
-                except MarkupError as e:
-                    await self.send_rich(
-                        f"[bold red]Error parsing markup:[/] {escape(str(e))}"
-                    )
-                except Exception as e:
-                    await self.send_rich(
-                        f"[bold red]An unexpected error occurred:[/] {escape(str(e))}"
-                    )
-            case ClientUpdate():
+            case LinkText():
+                await self.at_receive_text(data.text)
+            case LinkUpdate():
+                for k, v in data.info.items():
+                    await self.at_capability_change(k, v)
+            case LinkDisconnect():
                 pass
-            case ClientDisconnect():
-                pass
-            case ClientGMCP():
+            case LinkGMCP():
+                await self.at_receive_gmcp(data.package, data.data)
+            case LinkMSSP():
                 pass
 
-    async def gather_mssp(self) -> dict:
-        base_mssp = muforge.SETTINGS["MSSP"].copy()
-        live_mssp = await self.api_call("GET", "/misc/mssp")
-        base_mssp.update(live_mssp)
-        return base_mssp
+    async def gather_mssp(self) -> tuple[tuple[str, str], ...]:
+        live_mssp = await self.api_call("GET", "/system/mssp")
+        return live_mssp
 
     async def distribute_mssp(self):
-        if not self.capabilities.mssp:
+        if not self.link.info.mssp:
             return
+        live_mssp = await self.gather_mssp()
+        await self.send_mssp(live_mssp)
 
     def create_client(self):
         return AsyncClient(
@@ -289,67 +238,12 @@ class BaseConnection:
 
             while True:
                 try:
-                    data = await self.user_input_queue.get()
-                    await self.handle_user_input(data)
+                    data = await self.link.incoming_queue.get()
+                    await self.handle_incoming_event(data)
                 except asyncio.CancelledError:
                     return
                 except Exception as e:
                     logger.error(e)
-
-    async def handle_token(self, token: TokenResponse):
-        self.jwt = token.access_token
-        self.payload = jwt.decode(self.jwt, options={"verify_signature": False})
-        self.refresh_token = token.refresh_token
-
-    async def handle_login(self, token: TokenResponse):
-        await self.handle_token(token)
-        parser_class = muforge.CLASSES["user_parser"]
-
-        up = parser_class()
-        await self.push_parser(up)
-
-    async def run_refresher(self):
-        while True:
-            try:
-                await asyncio.sleep(60)
-                if not self.jwt:
-                    continue
-                # the expiry is stored as a unix timestamp... let's check how much, if any, time is left
-                remaining = self.payload["exp"] - time.time()
-
-                if remaining <= 0:
-                    # this is bad. we somehow missed the expiry time.
-                    # we should probably log this and then cancel the connection.
-                    await self.send_line(
-                        "Your session has expired. Please log in again."
-                    )
-                    self.shutdown_cause = "session_expired"
-                    self.shutdown_event.set()
-                    return
-
-                # if we have at least 5 minutes left, sleep until only 5 minutes are left
-                if remaining > 300:
-                    await asyncio.sleep(remaining - 300)
-
-                # now we have 5 minutes or less left. let's refresh the token.
-                try:
-                    json_data = await self.api_call(
-                        "POST",
-                        "/auth/refresh",
-                        json={"refresh_token": self.refresh_token},
-                    )
-                except HTTPStatusError as e:
-                    await self.send_line(
-                        "Your session has expired. Please log in again."
-                    )
-                    self.shutdown_cause = "session_expired"
-                    self.shutdown_event.set()
-                    return
-                token = TokenResponse(**json_data)
-                await self.handle_token(token)
-
-            except asyncio.CancelledError:
-                return
 
     async def api_call(
         self,

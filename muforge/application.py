@@ -12,6 +12,9 @@ class Service:
     load_priority: int = 0
     start_priority: int = 0
 
+    def __init__(self, app: "BaseApplication"):
+        self.app = app
+
     def is_valid(self):
         return True
 
@@ -95,7 +98,7 @@ class BaseApplication:
     async def setup_services(self):
         for k, v in muforge.SETTINGS[self.name.upper()].get("services", dict()).items():
             cls = property_from_module(v)
-            srv = cls()
+            srv = cls(self)
             muforge.SERVICES[k] = srv
             if srv.is_valid():
                 self.valid_services.append(srv)

@@ -71,6 +71,27 @@ class BasePlugin:
         """
         return dict()
     
+    def game_services(self) -> dict[str, typing.Any]:
+        """
+        Announces services for this plugin.
+        The dictionary is in [name, service] format. services are callables that take the app and return an object.
+        """
+        return dict()
+    
+    def portal_services(self) -> dict[str, typing.Any]:
+        """
+        Announces services for this plugin.
+        The dictionary is in [name, service] format. services are callables that take the app and return an object.
+        """
+        return dict()
+    
+    def portal_parsers(self) -> dict[str, typing.Any]:
+        """
+        Announces portal parsers for this plugin.
+        The dictionary is in [name, parser] format. parsers are callables that take the Connection return an object.
+        """
+        return dict()
+    
     async def pre_setup(self):
         """
         This is called before any dependency checks or exports are done. This might be done for customizing
