@@ -1,11 +1,14 @@
-import jwt
-import time
 import asyncio
-import muforge
+import time
+
+import jwt
 from httpx import HTTPStatusError
-from muforge.apps.portal.connections.connection import BaseConnection
+
+import muforge
+from muforge.apps.portal.connections import BaseConnection
 
 from .routers.auth import TokenResponse
+
 
 class CoreConnection(BaseConnection):
     """
@@ -23,7 +26,7 @@ class CoreConnection(BaseConnection):
         if self.jwt:
             out["Authorization"] = f"Bearer {self.jwt}"
         return out
-    
+
     async def handle_token(self, token: TokenResponse):
         self.jwt = token.access_token
         self.payload = jwt.decode(self.jwt, options={"verify_signature": False})
@@ -39,7 +42,7 @@ class CoreConnection(BaseConnection):
     def start_tasks(self, tg):
         super().start_tasks(tg)
         tg.create_task(self.run_refresher())
-    
+
     async def run_refresher(self):
         while True:
             try:
