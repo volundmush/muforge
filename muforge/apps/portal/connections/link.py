@@ -1,9 +1,10 @@
 import asyncio
 import typing
-from uuid import UUID
 from dataclasses import dataclass, field
+from uuid import UUID
 
 from rich.color import ColorType
+
 
 @dataclass(slots=True)
 class ClientInfo:
@@ -12,6 +13,7 @@ class ClientInfo:
     It can be subclassed to add more fields as needed, if you need to implement more TelnetOption subtypes that aren't
     covered here.
     """
+
     connection_id: UUID
     client_name: str = "UNKNOWN"
     client_version: str = "UNKNOWN"
@@ -23,8 +25,6 @@ class ClientInfo:
     color: ColorType = ColorType.DEFAULT
     width: int = 78
     height: int = 24
-    gmcp: bool = False
-    mssp: bool = False
     screen_reader: bool = False
 
 
@@ -39,27 +39,17 @@ class LinkDisconnect:
 
 
 @dataclass(slots=True)
-class LinkText:
-    text: str
-
-
-@dataclass(slots=True)
-class LinkGMCP:
+class LinkData:
     package: str
-    data: dict
-
-
-@dataclass(slots=True)
-class LinkMSSP:
-    data: tuple[tuple[str, str], ...]
+    data: typing.Any
 
 
 class ConnectionLink:
     """
-    A ConnectionLink 
+    A ConnectionLink
     """
-    
-    def __init__(self):
-        self.info = ClientInfo()
+
+    def __init__(self, info: ClientInfo):
+        self.info = info
         self.incoming_queue = asyncio.Queue()
         self.outgoing_queue = asyncio.Queue()

@@ -1,137 +1,43 @@
 import asyncio
-import orjson
-from loguru import logger
-import traceback
-from datetime import datetime
-
-import muforge
-from muforge.utils.misc import generate_name
-from muforge.application import Service
+import uuid
 
 from aiomudtelnet import MudTelnetProtocol
-from aiomudtelnet.options import ALL_OPTIONS
-from aiomudtelnet.parser import TelnetCode
+from loguru import logger
 
-from muforge.portal.base_connection import BaseConnection
-
-
-class TelnetConnection(BaseConnection):
-
-    def __repr__(self):
-        return f"<TelnetConnection: {self.session_name}>"
-
-    def __init__(
-        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, server
-    ):
-        super().__init__()
-        self.telnet = MudTelnetProtocol(
-            capabilities=self.capabilities,
-            supported_options=ALL_OPTIONS,
-            logger=logger,
-            json_library=orjson,
-        )
-        self._tn_reader = reader
-        self._tn_writer = writer
-        self._tn_server = server
-        self.telnet.callbacks["line"] = self.at_receive_line
-        self.telnet.callbacks["gmcp"] = self.at_receive_gmcp
-        self.telnet.callbacks["change_capabilities"] = self.at_capability_change
-
-    async def setup(self):
-        for task in (
-            self._tn_run_reader,
-            self._tn_run_writer,
-            self._tn_run_negotiation,
-        ):
-            self.task_group.create_task(task())
-
-    async def _tn_run_reader(self):
-        while True:
-            try:
-                data = await self._tn_reader.read(1024)
-                if not data:
-                    self.shutdown_cause = "reader_eof"
-                    self.shutdown_event.set()
-                    return
-                self.last_active_at = datetime.now()
-                await self.telnet.receive_data(data)
-            except asyncio.CancelledError:
-                return
-            except ConnectionResetError as e:
-                self.shutdown_cause = "reader_reset"
-                self.shutdown_event.set()
-                return
-            except Exception as err:
-                logger.error(traceback.format_exc())
-                logger.error(err)
-                self.shutdown_cause = "reader_unknown_error"
-                self.shutdown_event.set()
-                return
-
-    async def _tn_run_writer(self):
-        try:
-            async for data in self.telnet.output_stream():
-                self._tn_writer.write(data)
-                await self._tn_writer.drain()
-        except asyncio.CancelledError:
-            # Optionally, perform any cleanup before re-raising.
-            # For example, if you need to close the writer:
-            try:
-                self._tn_writer.close()
-                await self._tn_writer.wait_closed()
-            except Exception:
-                pass
-        except Exception as err:
-            logger.error(traceback.format_exc())
-            logger.error(err)
-
-    async def _tn_run_negotiation(self):
-        try:
-            await self.telnet.start()
-            if self.capabilities.telnet:
-                self.task_group.create_task(self.run_keepalive())
-            await self.run_link()
-        except Exception as err:
-            logger.error(traceback.format_exc())
-            logger.error(err)
-        except asyncio.CancelledError:
-            return
-
-    async def send_text(self, text: str):
-        await self.telnet.send_text(text)
-
-    async def send_gmcp(self, command: str, data=None):
-        await self.telnet.send_gmcp(command, data)
-
-    async def send_mssp(self, data: dict[str, str]):
-        await self.telnet.send_mssp(data)
-
-    async def run_keepalive(self):
-        try:
-            await self.telnet.send_command(TelnetCode.NOP)
-            await asyncio.sleep(10)
-        except asyncio.CancelledError:
-            return
+import muforge
+from muforge.application import Service
+from muforge.apps.portal.connections.link import ClientInfo
 
 
 class TelnetService(Service):
     tls = False
     op_key = "telnet"
 
-    def __init__(self):
+    def __init__(self, app, plugin):
+        super().__init__(app, plugin)
         self.connections = set()
 
-        self.external = muforge.SETTINGS["SHARED"]["external"]
-        self.port = muforge.SETTINGS["PORTAL"]["networking"][self.op_key]
+        config = plugin.settings[self.op_key]
+
+        self.external = config["bind_address"]
+        self.port = config["port"]
         self.tls_context = None
         self.server = None
         self.shutdown_event = asyncio.Event()
         self.sessions = set()
+        self.telnet_options = list(plugin.telnet_options.values())
 
     async def setup(self):
         self.server = await asyncio.start_server(
-            self.handle_client, self.external, self.port, ssl=self.tls_context
+            self.handle_client,
+            self.external,
+            self.port,
+            ssl=self.tls_context,
+            backlog=256,
+            keep_alive=True,
+            ssl_handshake_timeout=10.0 if self.tls_context else None,
         )
+
         # Log or print that the server has started
         logger.info(f"{self.op_key} server created on {self.external}:{self.port}")
 
@@ -156,20 +62,26 @@ class TelnetService(Service):
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
         address, port = writer.get_extra_info("peername")
-        protocol = muforge.CLASSES["telnet_connection"](reader, writer, self)
-        protocol.session_name = generate_name(
-            self.op_key, muforge.APP.game_sessions.keys()
-        )
-        protocol.host_address = address
-        protocol.host_port = port
-        if muforge.APP.resolver:
+        logger.info(f"{self.op_key} client connecting from {address}:{port}")
+        info = ClientInfo(connection_id=uuid.uuid4())
+        info.client_protocol = "telnet"
+        info.tls = bool(self.tls_context)
+        info.client_address = address
+
+        if self.app.resolver:
             try:
-                reverse = await muforge.APP.resolver.gethostbyaddr(address)
-                protocol.host_names = reverse.aliases
+                reverse_lookup = await self.app.resolver.gethostbyaddr(address)
+                info.client_hostname = reverse_lookup.aliases
+                logger.info(f"{self.op_key} client hostname: {reverse_lookup.name}")
             except Exception:
                 pass
+
+        protocol = self.app.classes["mud_telnet_protocol"](
+            reader, writer, self, info, supported_options=self.telnet_options
+        )
+
         self.sessions.add(protocol)
-        await muforge.APP.handle_new_protocol(protocol)
+        await protocol.run()
         self.sessions.remove(protocol)
 
 
@@ -177,9 +89,9 @@ class TLSTelnetService(TelnetService):
     tls = True
     op_key = "telnets"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, app, plugin):
+        super().__init__(app, plugin)
         self.tls_context = muforge.SSL_CONTEXT
 
-    def is_valid(self):
+    def is_valid(self) -> bool:
         return self.tls_context is not None

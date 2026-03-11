@@ -1,5 +1,5 @@
-import typing
 import re
+import typing
 
 CMD_MATCH = re.compile(
     r"(?s)^(?P<cmd>\S+?)(?:/(?P<switches>\S+)?)?(?P<fullargs> +(?P<args>(?P<lsargs>.+?)(?:=(?P<rsargs>.*))?)?)?$"
@@ -10,6 +10,7 @@ class BaseCommand:
     """
     Help not implemented for this command. Contact staff!
     """
+
     # The unique key for this command. This is used for identifying it,
     # but also for overriding it with plugins.
     key = "core/notset"
@@ -22,6 +23,9 @@ class BaseCommand:
     # Set this to true if you want the command to exist but never reach the parser.
     # this could be helpful for creating help files or meta-topics.
     unusable = False
+
+    class Error(ValueError):
+        pass
 
     @classmethod
     def check_match(cls, enactor: "ActingAs", command: str) -> typing.Optional[str]:

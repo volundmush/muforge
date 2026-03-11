@@ -3,10 +3,10 @@ import typing
 from muforge.plugin import BasePlugin
 
 
-class BBSPlugin(BasePlugin):
+class BBS(BasePlugin):
     def name(self) -> str:
         return "MuForge BBS"
-    
+
     def slug(self) -> str:
         return "bbs"
 
@@ -24,17 +24,15 @@ class BBSPlugin(BasePlugin):
         return {
             "/bbs": bbs_router,
         }
-    
+
     def game_static(self) -> str | None:
         return "static"
-    
+
     def game_lockfuncs(self) -> dict[str, typing.Any]:
         return dict()
-    
+
     def depends(self):
         return [("core", ">=0.0.1")]
 
 
-plugin = BBSPlugin
-
-__all__ = ["plugin"]
+__all__ = ["BBS"]

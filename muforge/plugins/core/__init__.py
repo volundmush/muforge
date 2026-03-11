@@ -3,10 +3,14 @@ import typing
 from muforge.plugin import BasePlugin
 
 
-class CorePlugin(BasePlugin):
+class Core(BasePlugin):
+    def __init__(self, app, settings=None):
+        super().__init__(app, settings)
+        self.crypt_context = None
+
     def name(self) -> str:
         return "MuForge Core"
-    
+
     def slug(self) -> str:
         return "core"
 
@@ -28,21 +32,29 @@ class CorePlugin(BasePlugin):
             "/users": users_router,
             "/pcs": pcs_router,
         }
-    
+
     def game_static(self) -> str | None:
         return "static"
-    
+
     def game_lockfuncs(self) -> dict[str, typing.Any]:
         return dict()
-    
+
     def portal_parsers(self):
         from .portal_parsers.auth import LoginParser
-        from .portal_parsers.user import UserParser
         from .portal_parsers.character import CharacterParser
+        from .portal_parsers.user import UserParser
 
         return {"auth": LoginParser, "user": UserParser, "character": CharacterParser}
 
+    def portal_services(self) -> dict[str, type]:
+        from .portal_services.connection import ConnectionService
 
-plugin = CorePlugin
+        return {"connection": ConnectionService}
 
-__all__ = ["plugin"]
+    async def post_setup(self):
+        from passlib.context import CryptContext
+
+        self.crypt_context = CryptContext(**self.settings.get("crypt", {}))
+
+
+__all__ = ["Core"]

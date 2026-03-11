@@ -14,14 +14,10 @@ from rich.errors import MarkupError
 from rich.markup import escape
 from rich.table import Table
 
-import muforge
-
 from .link import (
     ConnectionLink,
+    LinkData,
     LinkDisconnect,
-    LinkGMCP,
-    LinkMSSP,
-    LinkText,
     LinkUpdate,
 )
 
@@ -30,7 +26,7 @@ _re_event = re.compile(r"event: (.+)\ndata: (.+)\n\n", re.MULTILINE)
 
 class BaseConnection:
     """
-    This represents a single player connection, mapping a protocol like telnet to a SurrealDB client connection.
+    This represents a single player connection, mapping a protocol like telnet to an HTTPX client connection.
     """
 
     def __init__(self, service, link: ConnectionLink):
@@ -51,6 +47,10 @@ class BaseConnection:
         self.last_active_at = datetime.now()
         self.shutdown_event = asyncio.Event()
         self.shutdown_cause = None
+
+    @property
+    def app(self):
+        return self.service.app
 
     def get_headers(self) -> dict[str, str]:
         out = dict()
@@ -130,13 +130,7 @@ class BaseConnection:
                 self.console.width = value
 
     async def send_text(self, text: str):
-        await self.link.outgoing_queue.put(LinkText(text))
-
-    async def send_gmcp(self, package: str, data: dict):
-        await self.link.outgoing_queue.put(LinkGMCP(package, data))
-
-    async def send_mssp(self, data: tuple[tuple[str, str], ...]):
-        await self.link.outgoing_queue.put(LinkMSSP(data))
+        await self.link.outgoing_queue.put(LinkData(package="Text.ANSI", data=text))
 
     async def send_rich(self, *args, **kwargs):
         """
@@ -182,7 +176,7 @@ class BaseConnection:
             self.shutdown_cause = "no_parser"
             self.shutdown_event.set()
 
-    async def at_receive_text(self, text: str):
+    async def at_receive_command(self, cmd: str):
         if not self.parser_stack:
             self.shutdown_cause = "no_parser"
             self.shutdown_event.set()
@@ -197,44 +191,41 @@ class BaseConnection:
                 f"[bold red]An unexpected error occurred:[/] {escape(str(e))}"
             )
 
-    async def at_receive_gmcp(self, package: str, data: dict):
-        pass
+    async def at_receive_data(self, package: str, data: typing.Any):
+        if not self.parser_stack:
+            self.shutdown_cause = "no_parser"
+            self.shutdown_event.set()
+            return
+        parser = self.parser_stack[-1]
+        await parser.handle_incoming_data(package, data)
 
     async def handle_incoming_event(self, data):
         match data:
-            case LinkText():
-                await self.at_receive_text(data.text)
+            case LinkData(package=package, data=data):
+                await self.at_receive_data(package, data)
             case LinkUpdate():
                 for k, v in data.info.items():
                     await self.at_capability_change(k, v)
             case LinkDisconnect():
                 pass
-            case LinkGMCP():
-                await self.at_receive_gmcp(data.package, data.data)
-            case LinkMSSP():
-                pass
-
-    async def gather_mssp(self) -> tuple[tuple[str, str], ...]:
-        live_mssp = await self.api_call("GET", "/system/mssp")
-        return live_mssp
-
-    async def distribute_mssp(self):
-        if not self.link.info.mssp:
-            return
-        live_mssp = await self.gather_mssp()
-        await self.send_mssp(live_mssp)
+            case _:
+                if custom_handler := getattr(data, "custom_handler", None):
+                    await custom_handler(self)
 
     def create_client(self):
         return AsyncClient(
-            base_url=muforge.SETTINGS["PORTAL"]["networking"]["game_url"],
+            base_url=self.app.settings["game_url"],
             http2=True,
             limits=Limits(max_connections=10, max_keepalive_connections=10),
             verify=False,
             follow_redirects=True,
         )
 
+    def get_start_parser(self) -> type:
+        return self.app.parsers["auth"]
+
     async def run_link(self):
-        parser_class = muforge.CLASSES["login_parser"]
+        parser_class = self.get_start_parser()
 
         async with self.create_client() as client:
             self.client = client

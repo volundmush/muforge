@@ -3,10 +3,10 @@ import typing
 from muforge.plugin import BasePlugin
 
 
-class ChannelsPlugin(BasePlugin):
+class Channels(BasePlugin):
     def name(self) -> str:
         return "MuForge Channels"
-    
+
     def slug(self) -> str:
         return "channels"
 
@@ -24,17 +24,15 @@ class ChannelsPlugin(BasePlugin):
         return {
             "/channels": channels_router,
         }
-    
+
     def game_static(self) -> str | None:
         return "static"
-    
+
     def game_lockfuncs(self) -> dict[str, typing.Any]:
         return dict()
-    
+
     def depends(self):
         return [("core", ">=0.0.1")]
 
 
-plugin = ChannelsPluginPlugin
-
-__all__ = ["plugin"]
+__all__ = ["Channels"]

@@ -1,11 +1,12 @@
-import muforge
-from pydantic import ValidationError
-from .base import BaseParser
-from muforge.shared.commands import CMD_MATCH
 from httpx import HTTPStatusError
+from pydantic import ValidationError
+
+import muforge
+from muforge.apps.portal.connections.parser import BaseParser
+from muforge.commands import CMD_MATCH
 from muforge.shared.models.validators import user_rich_text
 
-from muforge.shared.models.auth import UserLogin, TokenResponse
+from ..routers.auth import TokenResponse, UserLogin
 
 
 class LoginParser(BaseParser):

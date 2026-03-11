@@ -3,16 +3,15 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 import pydantic
-
 from asyncpg import Connection
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import HTTPException, status
 
 import muforge
+from muforge.utils.database import transaction
 
 from .fields import username
-from ..utils import crypt_context
-from muforge.utils.database import transaction
+
 
 class UserLogin(pydantic.BaseModel):
     username: username
@@ -70,8 +69,11 @@ class TokenResponse(pydantic.BaseModel):
 class RefreshTokenModel(pydantic.BaseModel):
     refresh_token: str
 
+
 @transaction
-async def register_user(conn: Connection, username: str, password: str) -> UserModel:
+async def register_user(
+    conn: Connection, crypt_context, username: str, password: str
+) -> UserModel:
     admin_level = 0
 
     try:
@@ -126,16 +128,21 @@ async def register_user(conn: Connection, username: str, password: str) -> UserM
 
 @transaction
 async def authenticate_user(
-    conn: Connection, email: str, password: str, ip: str, user_agent: str | None
+    conn: Connection,
+    crypt_context,
+    username: str,
+    password: str,
+    ip: str,
+    user_agent: str | None,
 ) -> UserModel:
     # Retrieve the latest password row for this user.
     retrieved_user = await conn.fetchrow(
         """
         SELECT *
         FROM user_passwords
-        WHERE email = $1 LIMIT 1
+        WHERE username = $1 LIMIT 1
         """,
-        email,
+        username,
     )
     if not (
         retrieved_user

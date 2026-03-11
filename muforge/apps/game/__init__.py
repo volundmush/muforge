@@ -1,28 +1,28 @@
 import asyncio
 import tomllib
+import typing
+from collections import defaultdict
 from pathlib import Path
 
-import typing
 import asyncpg
 import orjson
-from collections import defaultdict
+from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from hypercorn import Config
 from hypercorn.asyncio import serve
 from lark import Lark
+from loguru import logger
+from mufroge.utils.database import INIT_SQL, transaction
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-from fastapi import Depends, FastAPI, Request, Response, APIRouter
-
-from loguru import logger
 
 import muforge
 from muforge.application import BaseApplication
 from muforge.utils.misc import callables_from_module, property_from_module
-from mufroge.utils.database import transaction, INIT_SQL
+
 
 def decode_json(data: bytes):
     decoded = orjson.loads(data)
@@ -53,7 +53,7 @@ async def perform_migrations(conn: asyncpg.Connection, app):
         migrations[p.slug()] = mi
         for k, v in mi.items():
             all_migrations.append((p.slug(), k, v))
-    
+
     migration_order: list[tuple[str, str, typing.Any]] = list()
 
     remaining_migrations = all_migrations.copy()
@@ -77,16 +77,20 @@ async def perform_migrations(conn: asyncpg.Connection, app):
                 idx_remove.append(i)
         for i in reversed(idx_remove):
             remaining_migrations.pop(i)
-    
+
     # We now have the list of sorted migrations to perform in order.
     # Some of them may have already been performed.
 
     performed = 0
     for plugin_slug, migration_name, migration in migration_order:
-        exists = await conn.fetchrow("""
+        exists = await conn.fetchrow(
+            """
             SELECT applied_at FROM plugin_migrations
             WHERE plugin_slug = $1 AND migration_name = $2
-        """, plugin_slug, migration_name)
+        """,
+            plugin_slug,
+            migration_name,
+        )
         if exists:
             continue
         up = getattr(migration, "upgrade", None)
@@ -99,23 +103,25 @@ async def perform_migrations(conn: asyncpg.Connection, app):
             await up(conn)
             performed += 1
         else:
-            logger.warning(f"Migration {migration_name} of plugin {plugin_slug} has no upgrade path. Skipping.")
+            logger.warning(
+                f"Migration {migration_name} of plugin {plugin_slug} has no upgrade path. Skipping."
+            )
             continue
-    
+
     logger.info(f"Performed {performed} migrations.")
 
 
 class Application(BaseApplication):
     name = "game"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, settings):
+        super().__init__(settings)
         self.fastapi_config = None
         self.fastapi_instance = None
 
     async def setup_asyncpg(self):
-        settings = muforge.SETTINGS["POSTGRESQL"]
-        pool = await asyncpg.create_pool(init=init_connection, **settings)
+        postgre_settings = self.settings["postgresql"]
+        pool = await asyncpg.create_pool(init=init_connection, **postgre_settings)
         muforge.PGPOOL = pool
 
     async def setup_commands(self):
@@ -144,6 +150,7 @@ class Application(BaseApplication):
 
         self.fastapi_instance = FastAPI()
         app = self.fastapi_instance
+        app.state.application = self
 
         app.add_middleware(
             CORSMiddleware,
@@ -209,15 +216,19 @@ class Application(BaseApplication):
         @app.get("/index.html", response_class=HTMLResponse)
         async def index_html():
             return render_index()
-        
+
         v1 = APIRouter()
         routers = dict()
         for p in self.plugin_load_order:
             if p_routers := p.game_routers():
                 for k, v in p_routers.items():
                     if k in routers:
-                        logger.error(f"Plugin {p.slug()} defines router for prefix /{k}, but it is already defined by another plugin.")
-                        raise Exception(f"Plugin {p.slug()} defines router for prefix /{k}, but it is already defined by another plugin.")
+                        logger.error(
+                            f"Plugin {p.slug()} defines router for prefix /{k}, but it is already defined by another plugin."
+                        )
+                        raise Exception(
+                            f"Plugin {p.slug()} defines router for prefix /{k}, but it is already defined by another plugin."
+                        )
                     routers[k] = v
 
         for k, v in routers.items():

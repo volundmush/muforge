@@ -9,9 +9,15 @@ class BasePlugin:
     methods that begin with game_ are relevant only to the game server.
     Likewise, methods that begin with portal_ are relevant only to the portal server.
     """
-    def __init__(self, app):
+
+    def __init__(self, app, settings=None):
         self.app = app
-    
+        self.settings = (
+            settings
+            if settings is not None
+            else app.complete_settings.get("PLUGIN", dict()).get(self.slug(), dict())
+        )
+
     def name(self) -> str:
         """
         Returns the name of the plugin. This is just for displaying it in lists.
@@ -70,28 +76,42 @@ class BasePlugin:
         The dictionary is in [name, func] format. funcs are callables that take a character and return a boolean.
         """
         return dict()
-    
-    def game_services(self) -> dict[str, typing.Any]:
+
+    def game_services(self) -> dict[str, type]:
         """
         Announces services for this plugin.
         The dictionary is in [name, service] format. services are callables that take the app and return an object.
         """
         return dict()
-    
-    def portal_services(self) -> dict[str, typing.Any]:
+
+    def game_classes(self) -> dict[str, type]:
+        """
+        Announces classes for this plugin.
+        The dictionary is in [name, class] format. classes are callables that take the app and return an object.
+        """
+        return dict()
+
+    def portal_classes(self) -> dict[str, type]:
+        """
+        Announces portal classes for this plugin.
+        The dictionary is in [name, class] format. classes are callables that take the app and return an object.
+        """
+        return dict()
+
+    def portal_services(self) -> dict[str, type]:
         """
         Announces services for this plugin.
         The dictionary is in [name, service] format. services are callables that take the app and return an object.
         """
         return dict()
-    
+
     def portal_parsers(self) -> dict[str, typing.Any]:
         """
         Announces portal parsers for this plugin.
         The dictionary is in [name, parser] format. parsers are callables that take the Connection return an object.
         """
         return dict()
-    
+
     async def pre_setup(self):
         """
         This is called before any dependency checks or exports are done. This might be done for customizing

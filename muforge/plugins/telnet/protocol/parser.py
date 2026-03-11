@@ -2,6 +2,10 @@ import typing
 from enum import IntEnum
 
 
+class ProtocolError(ValueError):
+    pass
+
+
 class TelnetCode(IntEnum):
     NULL = 0
     SGA = 3
@@ -71,7 +75,6 @@ class TelnetCode(IntEnum):
 
 
 class TelnetData:
-
     __slots__ = ["data"]
 
     def __init__(self, data: bytes):
@@ -88,7 +91,6 @@ class TelnetData:
 
 
 class TelnetCommand:
-
     __slots__ = ["command"]
 
     def __init__(self, command: int):
@@ -106,7 +108,6 @@ class TelnetCommand:
 
 
 class TelnetNegotiate:
-
     __slots__ = ["command", "option"]
 
     def __init__(self, command: int, option: int):
@@ -129,7 +130,6 @@ class TelnetNegotiate:
 
 
 class TelnetSubNegotiate:
-
     __slots__ = ["option", "data"]
 
     def __init__(self, option: int, data: bytes):
@@ -188,7 +188,7 @@ def _scan_until_iac_se(data: bytes) -> int:
 
 
 def parse_telnet(
-        data: bytes,
+    data: bytes, app_buffer_size: int, sub_buffer_size: int
 ) -> tuple[
     int,
     typing.Union[None, TelnetCommand, TelnetData, TelnetNegotiate, TelnetSubNegotiate],
@@ -209,15 +209,17 @@ def parse_telnet(
             # Escaped IAC
             return 2, TelnetData(data[:1])
         elif data[1] in (
-                TelnetCode.WILL,
-                TelnetCode.WONT,
-                TelnetCode.DO,
-                TelnetCode.DONT,
+            TelnetCode.WILL,
+            TelnetCode.WONT,
+            TelnetCode.DO,
+            TelnetCode.DONT,
         ):
             if len(data) < 3:
                 return 0, None
             return 3, TelnetNegotiate(data[1], data[2])
         elif data[1] == TelnetCode.SB:
+            if len(data) > sub_buffer_size:
+                raise ProtocolError("Sub-negotiation buffer overflow")
             length = _scan_until_iac_se(data)
             if length < 5:
                 return 0, None
@@ -226,6 +228,8 @@ def parse_telnet(
             # Other command
             return 2, TelnetCommand(data[1])
 
+    if len(data) > app_buffer_size:
+        raise ProtocolError("Application buffer overflow")
     # If the first byte isn't an IAC, scan until the first IAC or end of data
     length = _scan_until_iac(data)
     return length, TelnetData(data[:length])

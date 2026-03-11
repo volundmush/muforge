@@ -1,23 +1,48 @@
-import typing
 import asyncio
-import traceback
-import orjson
+import typing
+import uuid
+from dataclasses import dataclass
 
-from dataclasses import dataclass, field
+from loguru import logger
+from rich.color import ColorType
 
-from typing import Dict, Tuple, Optional, Union, List
-from collections import defaultdict
+from muforge.apps.portal.connections.link import (
+    ClientInfo,
+    ConnectionLink,
+    LinkData,
+    LinkDisconnect,
+    LinkUpdate,
+)
 
-from .parser import TelnetCode, TelnetCommand, TelnetData, TelnetNegotiate, TelnetSubNegotiate, parse_telnet
 from .options import TelnetOption
+from .parser import (
+    ProtocolError,
+    TelnetCode,
+    TelnetCommand,
+    TelnetData,
+    TelnetNegotiate,
+    TelnetSubNegotiate,
+    parse_telnet,
+)
 from .utils import ensure_crlf
-from muforge.apps.portal.capabilities import ClientInfo
 
+
+class MSSPRequest:
+    async def custom_handler(self, conn: "BaseConnection"):
+        live_mssp = await conn.api_call("GET", "/system/mssp")
 
 
 class MudTelnetProtocol:
-
-    def __init__(self, supported_options: typing.List[typing.Type[TelnetOption]] = None, text_encoding: str = "utf-8", json_library = None):
+    def __init__(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        service,
+        info: ClientInfo,
+        supported_options: typing.List[typing.Type[TelnetOption]] = None,
+        text_encoding: str = "utf-8",
+        json_library=None,
+    ):
         """
         Initialize a MudTelnetProtocol instance.
 
@@ -25,6 +50,10 @@ class MudTelnetProtocol:
             supported_options (list): A list of TelnetOption classes that the server supports. If this is None, all
                 advanced features are disabled. It's recommended to use the ALL_OPTIONS list from the options module.
         """
+        self.reader = reader
+        self.writer = writer
+        self.service = service
+        self.link = ConnectionLink(info)
         self.text_encoding = text_encoding
         self.supported_options = supported_options or list()
         # Various callbacks with different call signatures will be stored here.
@@ -33,7 +62,7 @@ class MudTelnetProtocol:
         self._tn_in_buffer = bytearray()
         # Private message queue that holds messages like TelnetData, TelnetCommand, TelnetNegotiate, TelnetSubNegotiate.
         # Used by self.output_stream
-        self._tn_out_queue = asyncio.Queue()
+        self._tn_out_queue: asyncio.Queue[typing.Optional[bytes]] = asyncio.Queue()
         # Holds text data sent by client that has yet to have a line ending.
         self._tn_app_data = bytearray()
         self._tn_options: dict[int, TelnetOption] = {}
@@ -42,10 +71,130 @@ class MudTelnetProtocol:
         # terrible enough to deal with as it is.
         self._out_transformers = list()
         self._in_transformers = list()
+        self.shutdown_event = asyncio.Event()
+        self.shutdown_reason = None
+        self.linked = False
+        self._link_disconnect_sent = False
+        self._shutdown_lock = asyncio.Lock()
+        self.uses_telnet = False
+
+        match self.plugin.settings.get("color_mode", 1):
+            case 0:
+                self.link.info.color = ColorType.DEFAULT
+            case 1:
+                self.link.info.color = ColorType.STANDARD
+            case 2:
+                self.link.info.color = ColorType.EIGHT_BIT
+            case 3:
+                self.link.info.color = ColorType.TRUECOLOR
+            case _:
+                self.link.info.color = ColorType.DEFAULT
 
         # Initialize all provided Telnet Option handlers.
         for op in self.supported_options:
             self._tn_options[op.code] = op(self)
+
+    @property
+    def plugin(self):
+        return self.service.plugin
+
+    async def shutdown(self, reason: str, *, notify_link: bool = True):
+        async with self._shutdown_lock:
+            if self.shutdown_event.is_set():
+                return
+
+            self.shutdown_reason = self.shutdown_reason or reason
+
+            if notify_link and self.linked and not self._link_disconnect_sent:
+                await self.link.incoming_queue.put(
+                    LinkDisconnect(reason=self.shutdown_reason)
+                )
+                self._link_disconnect_sent = True
+
+            self.shutdown_event.set()
+            await self._tn_out_queue.put(None)
+
+    async def _run_socket_reader(self):
+        chunk_size = 65536
+
+        try:
+            while True:
+                data = await self.reader.read(chunk_size)
+                if not data:
+                    await self.shutdown("client_disconnect")
+                    return
+                await self.receive_data(data)
+        except asyncio.CancelledError:
+            raise
+        except asyncio.IncompleteReadError, ConnectionResetError, BrokenPipeError:
+            await self.shutdown("connection_lost")
+        finally:
+            self.shutdown_event.set()
+
+    async def _run_socket_writer(self):
+        """
+        The _tn_out_queue just contains bytes objects to be written.
+        All encoding is done in _tn_enqueue_outgoing_data.
+        """
+        try:
+            while True:
+                data = await self._tn_out_queue.get()
+                if data is None:
+                    break
+                self.writer.write(data)
+                await self.writer.drain()
+        except asyncio.CancelledError:
+            raise
+        except ConnectionResetError, BrokenPipeError:
+            await self.shutdown("connection_lost")
+        finally:
+            self.writer.close()
+            await self.writer.wait_closed()
+
+    async def handle_outgoing_link_data(self, package: str, data):
+        match package:
+            case "Text.ANSI" | "Text" | "Text.Plain":
+                await self.send_text(data)
+            case _:
+                await self.send_gmcp(package, data)
+
+    async def _run_connection(self):
+        self.linked = True
+
+        app = self.plugin.app
+        service = app.services["connection"]
+        await service.pending_links.put(self.link)
+
+        while msg := await self.link.outgoing_queue.get():
+            match msg:
+                case LinkData(package=package, data=data):
+                    await self.handle_outgoing_link_data(package, data)
+                case LinkDisconnect(reason=reason):
+                    await self.shutdown(reason, notify_link=False)
+                    return
+                case LinkUpdate():
+                    pass
+
+    async def _run_keepalive(self):
+        pass
+
+    async def run(self):
+        async with asyncio.TaskGroup() as tg:
+            reader_task = tg.create_task(self._run_socket_reader())
+            writer_task = tg.create_task(self._run_socket_writer())
+            start_task = tg.create_task(self.start())
+            keepalive_task = tg.create_task(self._run_keepalive())
+
+            await self.shutdown_event.wait()
+
+            if not reader_task.done():
+                reader_task.cancel()
+            if not start_task.done():
+                start_task.cancel()
+            if not keepalive_task.done():
+                keepalive_task.cancel()
+            if not writer_task.done():
+                await self._tn_out_queue.put(None)
 
     async def start(self, timeout: float = 0.5):
         """
@@ -63,6 +212,21 @@ class MudTelnetProtocol:
         except asyncio.TimeoutError as err:
             pass
 
+        if self.shutdown_event.is_set():
+            return
+
+        if not self.uses_telnet and self.plugin.settings.get("warn_no_telnet", True):
+            recommended = self.plugin.settings.get("recommended_clients", [])
+            await self.send_line(
+                "Warning: Your client does not support Telnet negotiation."
+            )
+            if recommended:
+                await self.send_line(
+                    f"Consider using a MU* client, such as {', '.join(recommended)}."
+                )
+
+        await self._run_connection()
+
     async def receive_data(self, data: bytes) -> int:
         """
         This is the main entry point for incoming data.
@@ -78,11 +242,21 @@ class MudTelnetProtocol:
         for op in self._in_transformers:
             in_data = await op.transform_incoming_data(in_data)
 
-        self._tn_in_buffer.extend(data)
+        self._tn_in_buffer.extend(in_data)
+
+        app_buffer_size = self.plugin.settings.get("application_buffer_size", 16384)
+        sub_buffer_size = self.plugin.settings.get("subnegotiate_buffer_size", 4096)
 
         while True:
             # Try to parse a message from the buffer
-            consumed, message = parse_telnet(self._tn_in_buffer)
+            try:
+                consumed, message = parse_telnet(
+                    self._tn_in_buffer, app_buffer_size, sub_buffer_size
+                )
+            except ProtocolError as e:
+                logger.warning(f"{self}: Protocol error: {e}")
+                await self.shutdown(f"protocol_error: {e}")
+                return len(self._tn_in_buffer)
             if message is None:
                 break
             # advance the buffer by the number of bytes consumed
@@ -95,11 +269,22 @@ class MudTelnetProtocol:
         return len(self._tn_in_buffer)
 
     async def change_capabilities(self, changes: dict[str, typing.Any]):
-        cb = self.callbacks.get("change_capabilities", None)
-        for key, value in changes.items():
-            setattr(self.capabilities, key, value)
-            if cb:
-                await cb(key, value)
+        for k, v in changes.items():
+            match k:
+                case "color":
+                    self.link.info.color = v
+                case "encoding":
+                    self.link.info.encoding = v
+                case "height":
+                    self.link.info.height = v
+                case "width":
+                    self.link.info.width = v
+                case "screen_reader":
+                    self.link.info.screen_reader = v
+                case _:
+                    pass
+        if self.linked:
+            await self.link.incoming_queue.put(LinkUpdate(changes))
 
     async def _tn_at_telnet_message(self, message):
         """
@@ -109,17 +294,17 @@ class MudTelnetProtocol:
             case TelnetData():
                 await self._tn_handle_data(message)
             case TelnetCommand():
-                if not self.capabilities.telnet:
-                    await self.change_capabilities({"telnet": True})
+                self.uses_telnet = True
                 await self._tn_handle_command(message)
             case TelnetNegotiate():
-                if not self.capabilities.telnet:
-                    await self.change_capabilities({"telnet": True})
+                self.uses_telnet = True
                 await self._tn_handle_negotiate(message)
             case TelnetSubNegotiate():
-                if not self.capabilities.telnet:
-                    await self.change_capabilities({"telnet": True})
+                self.uses_telnet = True
                 await self._tn_handle_subnegotiate(message)
+
+    async def _tn_handle_command(self, message: TelnetCommand):
+        pass
 
     async def _tn_handle_data(self, message: TelnetData):
         self._tn_app_data.extend(message.data)
@@ -141,9 +326,7 @@ class MudTelnetProtocol:
             # Remove the processed line from _app_data
             self._tn_app_data = self._tn_app_data[newline_pos + 1 :]
 
-            # Call the line callback if it exists
-            if cb := self.callbacks.get("line", None):
-                await cb(line)
+            await self.link.incoming_queue.put(LinkData("Text.Command", line))
 
     async def _tn_handle_negotiate(self, message: TelnetNegotiate):
         if op := self._tn_options.get(message.option, None):
@@ -154,20 +337,21 @@ class MudTelnetProtocol:
         match message.command:
             case TelnetCode.WILL:
                 msg = TelnetNegotiate(TelnetCode.DONT, message.option)
-                await self._tn_out_queue.put(msg)
+                await self._tn_enqueue_outgoing_data(msg)
             case TelnetCode.DO:
                 msg = TelnetNegotiate(TelnetCode.WONT, message.option)
-                await self._tn_out_queue.put(msg)
+                await self._tn_enqueue_outgoing_data(msg)
 
     async def _tn_handle_subnegotiate(self, message: TelnetSubNegotiate):
         if op := self._tn_options.get(message.option, None):
             await op.at_receive_subnegotiate(message)
 
-    async def _tn_handle_command(self, message: TelnetCommand):
-        if cb := self.callbacks.get("command", None):
-            await cb(message.command)
-
-    async def _tn_encode_outgoing_data(self, data: typing.Union[TelnetData, TelnetCommand, TelnetNegotiate, TelnetSubNegotiate]) -> bytes:
+    async def _tn_enqueue_outgoing_data(
+        self,
+        data: typing.Union[
+            TelnetData, TelnetCommand, TelnetNegotiate, TelnetSubNegotiate
+        ],
+    ):
         # First we'll convert our object to bytes. It might be a TelnetData, TelnetCommand,
         # TelnetNegotiate, or TelnetSubNegotiate.
         encoded = bytes(data)
@@ -175,30 +359,7 @@ class MudTelnetProtocol:
         for op in self._out_transformers:
             encoded = await op.transform_outgoing_data(encoded)
         # return the encoded data.
-        return encoded
-
-    async def output_stream(self) -> typing.AsyncGenerator[bytes, None]:
-        """
-        This is the main output stream generator. It takes data from the _tn_out_queue,
-        encodes it as bytes, and yields it the caller. This is meant to be used in an
-        async for loop like so:
-
-        async for data in protocol.output_stream():
-            await writer.write(data)
-
-        """
-        while data := await self._tn_out_queue.get():
-            encoded = await self._tn_encode_outgoing_data(data)
-            # certain options need to know when things happen. Primarily MCCP2. So we'll notify them
-            # of the data that we now know "has been sent to the client".
-            match data:
-                case TelnetNegotiate():
-                    if op := self._tn_options.get(data.option, None):
-                        await op.at_send_negotiate(data)
-                case TelnetSubNegotiate():
-                    if op := self._tn_options.get(data.option, None):
-                        await op.at_send_subnegotiate(data)
-            yield encoded
+        await self._tn_out_queue.put(encoded)
 
     async def send_line(self, text: str):
         if not text.endswith("\n"):
@@ -207,17 +368,17 @@ class MudTelnetProtocol:
 
     async def send_text(self, text: str):
         converted = ensure_crlf(text)
-        await self._tn_out_queue.put(TelnetData(data=converted.encode()))
+        await self._tn_enqueue_outgoing_data(TelnetData(data=converted.encode()))
 
-    async def send_gmcp(self, command: str, data=None):
-        if self.capabilities.gmcp:
-            op = self._tn_options.get(TelnetCode.GMCP)
-            await op.send_gmcp(command, data)
+    async def send_gmcp(self, package: str, data=None):
+        if op := self._tn_options.get(TelnetCode.GMCP):
+            if op.status.local.enabled or op.status.remote.enabled:
+                await op.send_gmcp(package, data)
 
     async def send_mssp(self, data: dict[str, str]):
-        if self.capabilities.mssp:
-            op = self._tn_options.get(TelnetCode.MSSP)
-            await op.send_mssp(data)
+        if op := self._tn_options.get(TelnetCode.MSSP):
+            if op.status.local.enabled or op.status.remote.enabled:
+                await op.send_mssp(data)
 
     async def send_command(self, data: int):
-        await self._tn_out_queue.put(TelnetCommand(command=data))
+        await self._tn_enqueue_outgoing_data(TelnetCommand(command=data))

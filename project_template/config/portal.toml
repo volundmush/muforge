@@ -1,0 +1,11 @@
+dynaconf_merge = true
+
+[portal]
+# The class to use for the portal application. Generally no reason to change this.
+class = "muforge.apps.portal:Application"
+
+# The Portal will attempt to connect to the Game's webserver using this URL.
+# It should match the URL that the Game's webserver is bound to.
+# It's perfectly okay to use localhost or 127.0.0.1 here if
+# the game's running on the same machine as the portal.
+game_url = "https://127.0.0.1:8000"

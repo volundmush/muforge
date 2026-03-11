@@ -1,7 +1,17 @@
-import zlib
 import asyncio
+import zlib
 from dataclasses import dataclass, field
-from .parser import TelnetCode, TelnetNegotiate, TelnetSubNegotiate, TelnetData, TelnetCommand
+
+from rich.color import ColorType
+
+from .parser import (
+    TelnetCode,
+    TelnetCommand,
+    TelnetData,
+    TelnetNegotiate,
+    TelnetSubNegotiate,
+)
+
 
 @dataclass(slots=True)
 class TelnetOptionState:
@@ -31,11 +41,11 @@ class TelnetOption:
 
     async def send_subnegotiate(self, data: bytes):
         msg = TelnetSubNegotiate(self.code, data)
-        await self.protocol._tn_out_queue.put(msg)
+        await self.protocol._tn_enqueue_outgoing_data(msg)
 
     async def send_negotiate(self, command: TelnetCode):
         msg = TelnetNegotiate(command, self.code)
-        await self.protocol._tn_out_queue.put(msg)
+        await self.protocol._tn_enqueue_outgoing_data(msg)
 
     async def start(self):
         if self.start_local:
@@ -255,28 +265,28 @@ class MTTSOption(TelnetOption):
             out["client_version"] = client_version
 
         # Anything which supports MTTS definitely supports basic ANSI.
-        max_color = 1
+        max_color = ColorType.STANDARD
 
         match client_name.upper():
             case (
-            "ATLANTIS"
-            | "CMUD"
-            | "KILDCLIENT"
-            | "MUDLET"
-            | "MUSHCLIENT"
-            | "PUTTY"
-            # | "BEIP"
-            | "POTATO"
-            | "TINYFUGUE"
+                "ATLANTIS"
+                | "CMUD"
+                | "KILDCLIENT"
+                | "MUDLET"
+                | "MUSHCLIENT"
+                | "PUTTY"
+                # | "BEIP"
+                | "POTATO"
+                | "TINYFUGUE"
             ):
-                max_color = max(max_color, 2)
+                max_color = max(max_color, ColorType.EIGHT_BIT)
             case "BEIP":
-                max_color = max(max_color, 3)
+                max_color = max(max_color, ColorType.TRUECOLOR)
             case "MUDLET":
                 if client_version is not None and client_version.startswith("1.1"):
-                    max_color = max(max_color, 2)
+                    max_color = max(max_color, ColorType.EIGHT_BIT)
 
-        if max_color != self.protocol.capabilities.color:
+        if max_color != self.protocol.link.info.color:
             out["color"] = max_color
         await self.protocol.change_capabilities(out)
 
@@ -287,15 +297,15 @@ class MTTSOption(TelnetOption):
             first = data
             second = ""
 
-        max_color = self.protocol.capabilities.color
+        max_color = self.protocol.link.info.color
 
-        if max_color < 2:
+        if int(max_color) < 2:
             if (
-                    first.endswith("-256COLOR")
-                    or first.endswith("XTERM")  # Apple Terminal, old Tintin
-                    and not first.endswith("-COLOR")  # old Tintin, Putty
+                first.endswith("-256COLOR")
+                or first.endswith("XTERM")  # Apple Terminal, old Tintin
+                and not first.endswith("-COLOR")  # old Tintin, Putty
             ):
-                max_color = 2
+                max_color = ColorType.EIGHT_BIT
 
         out = dict()
 
@@ -307,9 +317,9 @@ class MTTSOption(TelnetOption):
             case "VT100":
                 out["vt100"] = True
             case "XTERM":
-                max_color = max(max_color, 2)
+                max_color = max(max_color, ColorType.EIGHT_BIT)
 
-        if max_color != self.protocol.capabilities.color:
+        if max_color != self.protocol.link.info.color:
             out["color"] = max_color
 
         if out:
@@ -331,31 +341,31 @@ class MTTSOption(TelnetOption):
         }
 
         out = dict()
-        max_color = self.protocol.capabilities.color
+        max_color = self.protocol.link.info.color
 
         for c in supported:
             match c:
                 case (
-                "encryption"
-                | "mslp"
-                | "mnes"
-                | "proxy"
-                | "vt100"
-                | "screenreader"
-                | "osc_color_palette"
-                | "mouse_tracking"
+                    "encryption"
+                    | "mslp"
+                    | "mnes"
+                    | "proxy"
+                    | "vt100"
+                    | "screenreader"
+                    | "osc_color_palette"
+                    | "mouse_tracking"
                 ):
                     out[c] = True
                 case "truecolor":
-                    max_color = max(3, max_color)
+                    max_color = max(ColorType.TRUECOLOR, max_color)
                 case "xterm256":
-                    max_color = max(2, max_color)
+                    max_color = max(ColorType.EIGHT_BIT, max_color)
                 case "ansi":
-                    max_color = max(1, max_color)
+                    max_color = max(ColorType.STANDARD, max_color)
                 case "utf8":
                     out["encoding"] = "utf-8"
 
-        if max_color != self.protocol.capabilities.color:
+        if max_color != self.protocol.link.info.color:
             out["color"] = max_color
 
         await self.protocol.change_capabilities(out)
@@ -370,12 +380,12 @@ class MSSPOption(TelnetOption):
         self.negotiation.set()
         await self.protocol.change_capabilities({"mssp": True})
 
-    async def send_mssp(self, data: dict[str, str]):
+    async def send_mssp(self, data: tuple[tuple[str, str], ...]):
         if not data:
             return
 
         out = bytearray()
-        for k, v in data.items():
+        for k, v in data:
             out.append(1)
             out.extend(k.encode())
             out.append(2)
@@ -392,9 +402,10 @@ class MCCP2Option(TelnetOption):
     def __init__(self, protocol):
         super().__init__(protocol)
         self.compressor = None
+        self.mccp2_enabled = False
 
     async def at_send_subnegotiate(self, msg):
-        if not self.protocol.capabilities.mccp2_enabled:
+        if not self.mccp2_enabled:
             await self.protocol.change_capabilities({"mccp2_enabled": True})
             self.protocol._out_transformers.append(self)
             self.compressor = zlib.compressobj(9)
@@ -406,9 +417,9 @@ class MCCP2Option(TelnetOption):
 
     async def transform_outgoing_data(self, data):
         if self.compressor:
-            return self.compressor.compress(
-                bytes(data)
-            ) + self.compressor.flush(zlib.Z_SYNC_FLUSH)
+            return self.compressor.compress(bytes(data)) + self.compressor.flush(
+                zlib.Z_SYNC_FLUSH
+            )
         else:
             return data
 
@@ -421,9 +432,10 @@ class MCCP3Option(TelnetOption):
     def __init__(self, protocol):
         super().__init__(protocol)
         self.decompressor = None
+        self.mccp3_enabled = False
 
     async def at_receive_subnegotiate(self, msg):
-        if not self.protocol.capabilities.mccp3_enabled:
+        if not self.mccp3_enabled:
             await self.protocol.change_capabilities({"mccp3_enabled": True})
             self.protocol._in_transformers.append(self)
             self.decompressor = zlib.decompressobj()
@@ -483,7 +495,7 @@ class GMCPOption(TelnetOption):
             json_data = None
         try:
             data = self.protocol.json_library.loads(json_data)
-        except (self.protocol.json_library.JSONDecodeError, TypeError):
+        except self.protocol.json_library.JSONDecodeError, TypeError:
             data = None
         if cb := self.protocol.callbacks.get("gmcp", None):
             await cb(command, data)
@@ -498,5 +510,16 @@ class LineModeOption(TelnetOption):
 class EOROption(TelnetOption):
     code = TelnetCode.TELOPT_EOR
 
-ALL_OPTIONS = [SGAOption, NAWSOption, CHARSETOption, MTTSOption, MSSPOption, MCCP2Option, MCCP3Option,
-               GMCPOption, LineModeOption, EOROption]
+
+ALL_OPTIONS = [
+    SGAOption,
+    NAWSOption,
+    CHARSETOption,
+    MTTSOption,
+    MSSPOption,
+    MCCP2Option,
+    MCCP3Option,
+    GMCPOption,
+    LineModeOption,
+    EOROption,
+]

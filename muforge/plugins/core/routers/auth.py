@@ -1,17 +1,15 @@
 from typing import Annotated
 
 import jwt
+from cryptography.hazmat.bindings._rust.openssl import CRYPTOGRAPHY_IS_AWSLC
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-
 import muforge
-from ..db.auth import RefreshTokenModel, TokenResponse, UserLogin
-
-from ..utils import crypt_context
 
 from ..db import auth as auth_db
 from ..db import users as users_db
+from ..db.auth import RefreshTokenModel, TokenResponse, UserLogin
 
 router = APIRouter()
 
@@ -20,14 +18,25 @@ async def handle_login(request: Request, username: str, password: str) -> TokenR
     ip = request.client.host
     user_agent = request.headers.get("User-Agent", None)
 
-    result = await auth_db.authenticate_user(username, password, ip, user_agent)
+    app = request.app.state.application
+    plugin = app.plugins["core"]
+    crypt_context = plugin.crypt_context
+
+    result = await auth_db.authenticate_user(
+        crypt_context, username, password, ip, user_agent
+    )
     return TokenResponse.from_uuid(result.id)
 
 
 @router.post("/register", response_model=TokenResponse)
 async def register(request: Request, data: Annotated[UserLogin, Body()]):
+    app = request.app.state.application
+    plugin = app.plugins["core"]
+    crypt_context = plugin.crypt_context
 
-    user = await auth_db.register_user(data.username, data.password.get_secret_value())
+    user = await auth_db.register_user(
+        crypt_context, data.username, data.password.get_secret_value()
+    )
     token = TokenResponse.from_uuid(user.id)
     return token
 
@@ -36,6 +45,9 @@ async def register(request: Request, data: Annotated[UserLogin, Body()]):
 async def login(
     request: Request, data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ):
+    app = request.app.state.application
+    plugin = app.plugins["core"]
+    crypt_context = plugin.crypt_context
     return await handle_login(request, data.username, data.password)
 
 

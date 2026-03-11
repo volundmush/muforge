@@ -1,36 +1,16 @@
-import asyncio
-import sys
-import traceback
-
-import muforge
 from muforge.application import BaseApplication
-from muforge.utils.misc import callables_from_module
-from loguru import logger
 
 
-class Application(_Application):
+class Application(BaseApplication):
     name = "portal"
 
-    def __init__(self):
-        super().__init__()
-        self.game_sessions = dict()
-        
+    def __init__(self, settings):
+        super().__init__(settings)
+        self.parsers: dict[str, type] = dict()
+
+    async def setup_parsers(self):
+        for p in self.plugin_load_order:
+            self.parsers.update(p.portal_parsers())
 
     async def setup(self):
         await super().setup()
-
-        for k, v in muforge.SETTINGS["PORTAL"]["commands"].items():
-            for name, command in callables_from_module(v).items():
-                muforge.PORTAL_COMMANDS[command.name] = command
-                muforge.PORTAL_COMMANDS_PRIORITY[command.priority].append(command)
-
-    async def handle_new_protocol(self, protocol):
-        protocol.core = self
-        try:
-            self.game_sessions[protocol.session_name] = protocol
-            await protocol.run()
-        except Exception as err:
-            logger.error(traceback.format_exc())
-            logger.error(err)
-        finally:
-            del self.game_sessions[protocol.session_name]
