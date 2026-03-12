@@ -162,11 +162,15 @@ class BaseApplication:
             for srv in services:
                 logger.info(f"Starting service: {srv.__class__.__name__}")
                 tg.create_task(srv.run())
+            tg.create_task(self.start())
 
             await self.shutdown_event.wait()
             raise asyncio.CancelledError()
 
         logger.info("All services have stopped.")
+
+    async def start(self):
+        pass
 
     def shutdown(self):
         self.shutdown_event.set()

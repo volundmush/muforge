@@ -103,6 +103,7 @@ async def assemble_fastapi(parent, config: Config):
     for k, v in routers.items():
         if not v:
             continue
+        logger.info(f"Adding router for prefix /{k}")
         v1.include_router(v, prefix=f"/{k}", tags=[k])
     app.include_router(v1, prefix="/v1")
 

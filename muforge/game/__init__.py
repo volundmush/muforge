@@ -7,7 +7,7 @@ from loguru import logger
 
 import muforge
 from muforge.application import BaseApplication
-from muforge.utils.misc import callables_from_module, property_from_module
+from muforge.utils.misc import property_from_module
 
 from .fastapi import assemble_fastapi
 
@@ -85,5 +85,8 @@ class Application(BaseApplication):
                     break
 
     async def start(self):
-        self.task_group.create_task(serve(self.fastapi_instance, self.fastapi_config))
-        self.task_group.create_task(self.postgre_listener())
+        await serve(
+            self.fastapi_instance,
+            self.fastapi_config,
+            shutdown_trigger=self.shutdown_event.wait,
+        )

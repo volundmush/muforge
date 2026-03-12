@@ -1,5 +1,6 @@
 import asyncio
 import os
+import signal
 import ssl
 import sys
 from pathlib import Path
@@ -31,6 +32,23 @@ def setup_logging(name: str):
         ],
     }
     logger.configure(**config)
+
+
+def install_signal_handlers(app):
+    def _handle_signal(sig):
+        logger.info(f"Received signal {sig.name}, shutting down...")
+        app.shutdown()
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, _handle_signal, sig)
+        except NotImplementedError, RuntimeError:
+            signal.signal(sig, lambda *_: _handle_signal(sig))
 
 
 async def setup_program(program: str, settings: dict):
@@ -69,6 +87,7 @@ async def run_program(program: str, settings: dict):
             )
             app = app_class(settings)
             await app.setup()
+            install_signal_handlers(app)
             try:
                 await app.run()
             except asyncio.CancelledError:
