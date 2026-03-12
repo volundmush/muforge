@@ -10,27 +10,16 @@ name = "muforge"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
-    "orjson",
     "rich",
     "dynaconf",
-    "pydantic[email]",
     "loguru",
     "aiodns",
     "fastapi[standard]",
     "aioquic",
     "hypercorn[h3]",
-    "websockets",
-    "pyjwt",
-    "passlib",
-    "argon2-cffi",
-    "asyncpg",
-    "alembic",
-    "sqlalchemy",
     "httpx[http2]",
     "httpx-sse",
-    "lark",
     "semver",
-    "psutil"
 ]
 # This creates the `muforge` command on install
-scripts = { muforge = "muforge" }
+#scripts = { muforge = "muforge" }
