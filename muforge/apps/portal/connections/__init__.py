@@ -49,6 +49,10 @@ class BaseConnection:
         self.shutdown_cause = None
 
     @property
+    def plugin(self):
+        return self.service.plugin
+
+    @property
     def app(self):
         return self.service.app
 
@@ -230,7 +234,6 @@ class BaseConnection:
         async with self.create_client() as client:
             self.client = client
             await self.push_parser(parser_class())
-            await self.distribute_mssp()
 
             while True:
                 try:

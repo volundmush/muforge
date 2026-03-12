@@ -1,11 +1,10 @@
 from httpx import HTTPStatusError
 from pydantic import ValidationError
 
-import muforge
 from muforge.apps.portal.connections.parser import BaseParser
 from muforge.commands import CMD_MATCH
-from muforge.shared.models.validators import user_rich_text
 
+from ..db.validators import user_rich_text
 from ..routers.auth import TokenResponse, UserLogin
 
 
@@ -14,9 +13,14 @@ class LoginParser(BaseParser):
     Implements the login menu. User registration and authentication, etc.
     """
 
+    async def display_welcome_screen(self):
+        pass
+
     async def show_welcome(self):
-        # TODO: Figure out a welcome screen solution.
-        await self.send_line(f"Welcome to {muforge.SETTINGS['MSSP']['NAME']}!")
+        await self.display_welcome_screen()
+        await self.send_line(
+            f"Welcome to {self.app.complete_settings['MUFORGE'].get('name', 'MuForge')}!"
+        )
         help_table = self.make_table("Command", "Description")
         help_table.add_row("register <email>=<password>", "Register a new account.")
         help_table.add_row("login <email>=<password>", "Login to an existing account.")
@@ -45,19 +49,19 @@ class LoginParser(BaseParser):
             await self.send_line("Usage: login <email>=<password>")
             return
         try:
-            u = UserLogin(email=lsargs, password=rsargs)
+            u = UserLogin(username=lsargs, password=rsargs)
         except ValidationError as e:
             await self.send_line(f"Invalid login credentials: {e}")
             return
         # this uses the /auth/register endpoint... which should give us a TokenResponse.
 
         data = {
-            "username": u.email,
+            "username": u.username,
             "password": u.password.get_secret_value(),
             "grant_type": "password",
         }
         try:
-            json_data = await self.api_call("POST", "/auth/login", data=data)
+            json_data = await self.api_call("POST", "/v1/auth/login", data=data)
         except HTTPStatusError as e:
             await self.send_line(f"Login failed: {e}")
             return
@@ -69,14 +73,14 @@ class LoginParser(BaseParser):
             await self.send_line("Usage: register <email>=<password>")
             return
         try:
-            u = UserLogin(email=lsargs, password=rsargs)
+            u = UserLogin(username=lsargs, password=rsargs)
         except ValidationError as e:
             await self.send_line(f"Invalid registration credentials: {e}")
             return
 
         try:
-            data = {"email": u.email, "password": u.password.get_secret_value()}
-            json_data = await self.api_call("POST", "/auth/register", json=data)
+            data = {"username": u.username, "password": u.password.get_secret_value()}
+            json_data = await self.api_call("POST", "/v1/auth/register", json=data)
         except HTTPStatusError as e:
             await self.send_line(f"Registration failed: {e}")
             return

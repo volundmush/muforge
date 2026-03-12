@@ -1,11 +1,8 @@
 from typing import Annotated
 
 import jwt
-from cryptography.hazmat.bindings._rust.openssl import CRYPTOGRAPHY_IS_AWSLC
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-
-import muforge
 
 from ..db import auth as auth_db
 from ..db import users as users_db
@@ -18,25 +15,25 @@ async def handle_login(request: Request, username: str, password: str) -> TokenR
     ip = request.client.host
     user_agent = request.headers.get("User-Agent", None)
 
-    app = request.app.state.application
-    plugin = app.plugins["core"]
-    crypt_context = plugin.crypt_context
+    crypt_context = request.app.state.core.crypt_context
+    db = request.app.state.core.db
 
-    result = await auth_db.authenticate_user(
-        crypt_context, username, password, ip, user_agent
-    )
+    async with db.transaction() as conn:
+        result = await auth_db.authenticate_user(
+            conn, crypt_context, username, password, ip, user_agent
+        )
     return TokenResponse.from_uuid(result.id)
 
 
 @router.post("/register", response_model=TokenResponse)
 async def register(request: Request, data: Annotated[UserLogin, Body()]):
-    app = request.app.state.application
-    plugin = app.plugins["core"]
-    crypt_context = plugin.crypt_context
+    crypt_context = request.app.state.core.crypt_context
+    db = request.app.state.core.db
 
-    user = await auth_db.register_user(
-        crypt_context, data.username, data.password.get_secret_value()
-    )
+    async with db.transaction() as conn:
+        user = await auth_db.register_user(
+            conn, crypt_context, data.username, data.password.get_secret_value()
+        )
     token = TokenResponse.from_uuid(user.id)
     return token
 
@@ -45,15 +42,14 @@ async def register(request: Request, data: Annotated[UserLogin, Body()]):
 async def login(
     request: Request, data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ):
-    app = request.app.state.application
-    plugin = app.plugins["core"]
-    crypt_context = plugin.crypt_context
     return await handle_login(request, data.username, data.password)
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(ref: Annotated[RefreshTokenModel, Body()]):
-    jwt_settings = muforge.SETTINGS["JWT"]
+async def refresh_token(request: Request, ref: Annotated[RefreshTokenModel, Body()]):
+    core = request.app.state.core
+    jwt_settings = core.settings.get("jwt", dict())
+
     try:
         payload = jwt.decode(
             ref.refresh_token,
@@ -74,7 +70,9 @@ async def refresh_token(ref: Annotated[RefreshTokenModel, Body()]):
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload."
         )
 
+    db = request.app.state.core.db
     # Verify user exists. This will raise if not.
-    user = await users_db.get_user(sub)
+    async with db.connection() as conn:
+        user = await users_db.get_user(conn, sub)
 
     return TokenResponse.from_uuid(sub)

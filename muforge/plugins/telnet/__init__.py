@@ -54,6 +54,11 @@ class Telnet(BasePlugin):
             "mtts": MTTSOption,
         }
 
+    def game_routers_v1(self) -> dict[str, typing.Any]:
+        from .router import router as telnet_router
+
+        return {"telnet": telnet_router}
+
     async def post_setup(self):
         for p in self.app.plugin_load_order:
             if hasattr(p, "portal_telnet_options"):

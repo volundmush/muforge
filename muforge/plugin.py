@@ -38,18 +38,6 @@ class BasePlugin:
         """
         raise NotImplementedError
 
-    def game_migrations(self) -> list[tuple[str, typing.Any]]:
-        """
-        Returns a list of tuples of (migration_name, migration_module)
-        A migration module contains the following properties:
-
-        upgrade, downgrade: either strings (SQL statements) or callables (async functions) that perform the migration.
-
-        depends: a list of tuples of (plugin_slug, migration_name) that this migration depends on.
-        The migrations will be run in the order of the dependencies.
-        """
-        return []
-
     def depends(self) -> list[tuple[str, str]]:
         """
         Returns a tuple of (plugin_slug, version) tuples that this plugin depends on.
@@ -70,7 +58,7 @@ class BasePlugin:
         """
         return None
 
-    def game_lockfuncs(self) -> dict[str, typing.Any]:
+    def game_lockfuncs(self) -> dict[str, typing.Callable]:
         """
         Announces lockfuncs for this plugin.
         The dictionary is in [name, func] format. funcs are callables that take a character and return a boolean.
@@ -88,6 +76,13 @@ class BasePlugin:
         """
         Announces classes for this plugin.
         The dictionary is in [name, class] format. classes are callables that take the app and return an object.
+        """
+        return dict()
+
+    def game_commands(self) -> dict[str, type]:
+        """
+        Announces commands for this plugin.
+        The dictionary is in [name, command] format. commands are callables that take the app and return an object.
         """
         return dict()
 
@@ -122,5 +117,11 @@ class BasePlugin:
     async def post_setup(self):
         """
         This is called after all dependency checks have been resolved.
+        """
+        pass
+
+    async def setup_final(self):
+        """
+        This is called when the game has finished loading everything else.
         """
         pass

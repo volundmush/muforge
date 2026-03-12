@@ -1,12 +1,11 @@
 from httpx import HTTPStatusError
 
-import muforge
-from muforge.shared.commands import CMD_MATCH
-from muforge.shared.models.pcs import ActiveAs, CharacterModel
-from muforge.shared.models.users import UserModel
-from muforge.shared.utils import partial_match
+from muforge.apps.portal.connections.parser import BaseParser
+from muforge.commands import CMD_MATCH
+from muforge.utils.misc import partial_match
 
-from .base import BaseParser
+from ..db.pcs import PCModel
+from ..db.users import UserModel
 
 
 class UserParser(BaseParser):
@@ -33,14 +32,14 @@ class UserParser(BaseParser):
             return
         js_data = {"name": args}
         try:
-            character_data = await self.api_call("POST", "/characters/", json=js_data)
+            character_data = await self.api_call("POST", "/v1/pcs/", json=js_data)
         except HTTPStatusError as e:
             await self.send_line(f"Error creating character: {e.response.text}")
             return
         except Exception as e:
             await self.send_line(f"An unknown error occurred: {str(e)}")
             return
-        character = CharacterModel(**character_data)
+        character = PCModel(**character_data)
         await self.handle_look()
         await self.send_line(f"Character {character.name} created.")
 
@@ -49,19 +48,18 @@ class UserParser(BaseParser):
             await self.send_line("You must supply a name for your character.")
             return
         user_id = self.connection.payload.get("sub")
-        user_data = await self.api_call("GET", f"/users/{user_id}")
+        user_data = await self.api_call("GET", f"/v1/users/{user_id}")
         user = UserModel(**user_data)
-        character_data = await self.api_call("GET", f"/users/{user_id}/characters")
-        characters = [CharacterModel(**c) for c in character_data]
+        character_data = await self.api_call("GET", f"/v1/users/{user_id}/characters")
+        characters = [PCModel(**c) for c in character_data]
 
         if not (character := partial_match(args, characters, key=lambda c: c.name)):
             await self.send_line("Character not found.")
             return
 
-        active = ActiveAs(user=user, character=character)
-        parser_class = muforge.CLASSES["character_parser"]
+        parser_class = self.app.parsers["pc"]
 
-        parser = parser_class(active)
+        parser = parser_class(user, character)
         await self.connection.push_parser(parser)
 
     async def handle_delete(self, args: str):
@@ -75,7 +73,7 @@ class UserParser(BaseParser):
 
     async def handle_look(self):
         user_id = self.connection.payload.get("sub")
-        character_data = await self.api_call("GET", f"/users/{user_id}/characters")
+        character_data = await self.api_call("GET", f"/v1/users/{user_id}/characters")
 
         characters = [CharacterModel(**c) for c in character_data]
 

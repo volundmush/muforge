@@ -1,3 +1,5 @@
+dynaconf_merge = true
+
 [plugin.core.jwt]
 # These are the defaults for the JWT tokens.
 # PLEASE CHANGE THE SECRET!
@@ -11,3 +13,9 @@ refresh_expire_minutes = 10080
 # these key-values are passed verbatim to passlib.contxt.CryptContext()
 schemes = ["argon2", "sha512_crypt", "plaintext"]
 deprecated = ["sha512_crypt", "plaintext"]
+
+[plugin.core.postgresql]
+# The information that'll be fed straight into
+# asyncpg's connection function via **kwargs.
+# The dsn format is: postgresql://<user>:<password>@<host>:<port>/<database>
+dsn = "postgres://muforge:muforge@localhost:5432/muforge"

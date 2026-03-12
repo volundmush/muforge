@@ -27,11 +27,6 @@ from .parser import (
 from .utils import ensure_crlf
 
 
-class MSSPRequest:
-    async def custom_handler(self, conn: "BaseConnection"):
-        live_mssp = await conn.api_call("GET", "/system/mssp")
-
-
 class MudTelnetProtocol:
     def __init__(
         self,
@@ -155,6 +150,8 @@ class MudTelnetProtocol:
         match package:
             case "Text.ANSI" | "Text" | "Text.Plain":
                 await self.send_text(data)
+            case "MSSP":
+                await self.send_mssp(data)
             case _:
                 await self.send_gmcp(package, data)
 
@@ -224,6 +221,9 @@ class MudTelnetProtocol:
                 await self.send_line(
                     f"Consider using a MU* client, such as {', '.join(recommended)}."
                 )
+
+        for k, v in self._tn_options.items():
+            await v.at_post_negotiation()
 
         await self._run_connection()
 

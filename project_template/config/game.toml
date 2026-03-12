@@ -4,12 +4,6 @@ dynaconf_merge = true
 # The class to use for the game application. Generally no reason to change this.
 class = "muforge.apps.game:Application"
 
-[game.postgresql]
-# The information that'll be fed straight into
-# asyncpg's connection function via **kwargs.
-# The dsn format is: postgresql://<user>:<password>@<host>:<port>/<database>
-dsn = "postgres://muforge:muforge@localhost:5432/muforge"
-
 [game.webserver]
 # The address to bind the webserver to.
 bind_address = "0.0.0.0"

@@ -30,7 +30,7 @@ dependencies = [
     "httpx-sse",
     "lark",
     "semver",
-    "aiomudtelnet @ git+https://github.com/volundmush/aiomudtelnet@main"
+    "psutil"
 ]
 # This creates the `muforge` command on install
-scripts = { muforge = "muforge.launcher:main" }
+scripts = { muforge = "muforge" }

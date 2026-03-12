@@ -12,7 +12,7 @@ subnegotiate_buffer_size = 16384
 keepalive_interval = 30
 
 # Warn clients on connect if they don't support telnet.
-warn_no_telnet = True
+warn_no_telnet = true
 # If the warning is shown, recommend these clients to the user.
 recommended_clients = ["MUSHClient", "BeipMU", "TinTin++", "MUDlet"]
 # Which color mode to use for telnet clients by default, if not altered by MTTS.

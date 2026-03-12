@@ -1,32 +1,29 @@
 import asyncio
-import typing
+import uuid
 
 from httpx import HTTPStatusError
 from loguru import logger
 from rich.errors import MarkupError
 from rich.markup import escape
 
-import muforge
-from muforge.shared.commands import CMD_MATCH
-from muforge.shared.models.pcs import ActiveAs
+from muforge.apps.portal.connections.parser import BaseParser
 
-from .base import BaseParser
+from ..db.pcs import PCModel
+from ..db.users import UserModel
 
 
-class CharacterParser(BaseParser):
-    def __init__(self, active: ActiveAs):
+class PCParser(BaseParser):
+    def __init__(self, user: UserModel, character: PCModel):
         super().__init__()
-        self.active = active
-        self.sio = None
+        self.user = user
+        self.character = character
         self.shutdown_event = asyncio.Event()
         self.client = None
         self.stream_task = None
         self.sid = None
 
     async def on_start(self):
-        await self.send_line(
-            f"You have entered the game as {self.active.character.name}."
-        )
+        await self.send_line(f"You have entered the game as {self.character.name}.")
         self.stream_task = self.connection.task_group.create_task(self.stream_updates())
 
     async def on_end(self):
@@ -34,7 +31,7 @@ class CharacterParser(BaseParser):
 
     async def handle_event(self, event_name: str, event_data: dict):
 
-        if event_class := muforge.EVENTS.get(event_name, None):
+        if event_class := self.app.events.get(event_name, None):
             event = event_class(**event_data)
             await event.handle_event(self)
         else:
@@ -47,7 +44,7 @@ class CharacterParser(BaseParser):
                 if disconnects > 0:
                     await asyncio.sleep(2 ^ disconnects)
                 async for event_name, event_data in self.connection.api_stream(
-                    "GET", f"/characters/{self.active.character.id}/events"
+                    "GET", f"/v1/pcs/{self.character.id}/events"
                 ):
                     disconnects = 0
                     await self.handle_event(event_name, event_data)
@@ -69,46 +66,11 @@ class CharacterParser(BaseParser):
                 disconnects += 1
                 return
 
-    def available_commands(self) -> dict[int, list["Command"]]:
-        out = dict()
-        for priority, commands in muforge.PORTAL_COMMANDS_PRIORITY.items():
-            for c in commands:
-                if c.check_access(self.active):
-                    out[c.name] = c
-        return out
-
-    def iter_commands(self):
-        priorities = sorted(muforge.PORTAL_COMMANDS_PRIORITY.keys())
-        for priority in priorities:
-            for command in muforge.PORTAL_COMMANDS_PRIORITY[priority]:
-                if command.check_access(self.active):
-                    yield command
-
-    def match_command(self, cmd: str) -> typing.Optional["Command"]:
-        for command in self.iter_commands():
-            if command.unusable:
-                continue
-            if command.check_match(self.active, cmd):
-                return command
-
-    async def refresh_active(self):
-        json_data = await self.api_call(
-            "GET", f"/characters/{self.active.character.id}/active"
-        )
-        self.active = ActiveAs(**json_data)
-
     async def handle_command(self, event: str):
-        try:
-            await self.refresh_active()
-        except Exception as e:
-            logger.error(e)
-            await self.send_line("An error occurred. Please contact staff.")
-            return
-
         try:
             result = await self.api_call(
                 "POST",
-                f"/characters/{self.active.character.id}/command",
+                f"/v1/pcs/{self.self.character.id}/command",
                 json={"command": event},
             )
         except MarkupError as e:
@@ -123,14 +85,5 @@ class CharacterParser(BaseParser):
             logger.exception("HTTP error in handle_command: %s")
             await self.send_line("An error occurred. Please contact staff.")
         except Exception as error:
-            if self.active.user.admin_level >= 1:
-                await self.send_line(f"An error occurred: {error}")
-            else:
-                await self.send_line(f"An unknown error occurred. Contact staff.")
+            await self.send_line(f"An error occurred: {error}")
             logger.exception(error)
-
-    async def api_character_call(self, *args, **kwargs):
-        if "query" not in kwargs:
-            kwargs["query"] = dict()
-        kwargs["query"]["character_id"] = self.active.character.id
-        return await self.connection.api_call(*args, **kwargs)

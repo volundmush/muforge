@@ -1,54 +1,45 @@
 import asyncio
 import uuid
-import weakref
 from datetime import datetime, timezone
-
-import muforge
-from muforge.shared.events.messages import Line, Text
-from muforge.shared.models.pcs import PCModel
-from muforge.shared.models.users import UserModel
 
 
 class Session:
     __slots__ = (
+        "app",
+        "user_id",
+        "pc_id",
         "user",
         "pc",
-        "puppet",
         "created_at",
         "last_active_at",
         "subscriptions",
         "active",
     )
 
-    def __init__(self, user: UserModel, pc: PCModel):
-        self.user = user
-        self.pc = pc
-        self.puppet = pc
+    def __init__(self, app, user_id: uuid.UUID, pc_id: uuid.UUID):
+        self.app = app
+        # The user_id also serves as the session ID.
+        self.user_id = user_id
+        self.pc_id = pc_id
+        # User and PC are filled in after the session is created.
+        self.user = None
+        self.pc = None
         self.created_at = datetime.now(timezone.utc)
         self.last_active_at = datetime.now(timezone.utc)
         self.subscriptions: list[asyncio.Queue] = []
-        self.active = True
+        self.active = False
 
     async def send_event(self, event) -> None:
         for q in self.subscriptions:
             await q.put(event)
 
-    async def send_line(self, text: str) -> None:
-        await self.send_event(Line(message=text))
-
-    async def send_text(self, text: str) -> None:
-        await self.send_event(Text(message=text))
-
     def send_event_nowait(self, event) -> None:
         for q in self.subscriptions:
             q.put_nowait(event)
 
-    def is_switched(self) -> bool:
-        return self.puppet is not self.pc
-
     async def execute_command(self, command: str) -> None | dict:
         self.last_active_at = datetime.now(timezone.utc)
-        return await self.puppet.execute_command(command)
+        return await self.pc.execute_command(command)
 
     def subscribe(self) -> asyncio.Queue:
         """Create a new queue for this character and add it to the subscription list."""

@@ -493,7 +493,7 @@ def property_from_module(path: str) -> typing.Any:
         path (str): path.to.module:property
     """
     if not path or ":" not in path:
-        raise ImportError("Path is not in module:property format!")
+        raise ImportError(f"Path is not in module:property format! (Got: {path})")
     module_path, property_name = path.split(":", 1)
     module = importlib.import_module(module_path)
     return getattr(module, property_name)

@@ -4,15 +4,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from muforge.game.db import pcs as pcs_db
-from muforge.shared.models.pcs import PCModel
-from muforge.shared.models.users import UserModel
+from muforge.utils.responses import streaming_list
 
+from ..db import pcs as pcs_db
 from ..db import users as users_db
-from .utils import (
-    get_current_user,
-    streaming_list,
-)
+from ..db.pcs import PCModel
+from ..db.users import UserModel
+from ..depends import get_current_user
 
 router = APIRouter()
 

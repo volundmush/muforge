@@ -7,9 +7,6 @@ from asyncpg import Connection
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import HTTPException, status
 
-import muforge
-from muforge.utils.database import transaction
-
 from .fields import username
 
 
@@ -70,7 +67,7 @@ class RefreshTokenModel(pydantic.BaseModel):
     refresh_token: str
 
 
-@transaction
+# meant to be run in a Transaction.
 async def register_user(
     conn: Connection, crypt_context, username: str, password: str
 ) -> UserModel:
@@ -126,7 +123,7 @@ async def register_user(
     return user
 
 
-@transaction
+# Meant to be run in a Transaction.
 async def authenticate_user(
     conn: Connection,
     crypt_context,

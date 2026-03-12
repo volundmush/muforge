@@ -2,29 +2,32 @@ import typing
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import muforge
+from muforge.utils.responses import streaming_list
+
 from ..db import pcs as pcs_db
 from ..db.pcs import ActiveAs, CharacterCreate, PCModel
 from ..db.users import UserModel
-
-from muforge.core.depends import get_acting_character, get_current_user
-from muforge.utils.responses import streaming_list
+from ..depends import get_current_user
 
 router = APIRouter()
 
 
 @router.get("/", response_model=typing.List[PCModel])
-async def get_pcs(user: Annotated[UserModel, Depends(get_current_user)]):
+async def get_pcs(
+    request: Request, user: Annotated[UserModel, Depends(get_current_user)]
+):
     if not user.admin_level > 0:
         raise HTTPException(
             status_code=403, detail="You do not have permission to view all characters."
         )
+    db = request.app.state.core.db
 
-    stream = pcs_db.list_pcs()
+    stream = db.stream(pcs_db.list_pcs)
 
     return streaming_list(stream)
 
@@ -36,9 +39,13 @@ async def get_active_pc(user: Annotated[UserModel, Depends(get_current_user)]):
 
 @router.get("/{pc_id}", response_model=PCModel)
 async def get_pc(
-    user: Annotated[UserModel, Depends(get_current_user)], pc_id: uuid.UUID
+    request: Request,
+    user: Annotated[UserModel, Depends(get_current_user)],
+    pc_id: uuid.UUID,
 ):
-    pc = await pcs_db.find_pc_id(pc_id)
+    db = request.app.state.core.db
+    async with db.connection() as conn:
+        pc = await pcs_db.find_pc_id(conn, pc_id)
     if pc.user_id != user.id and user.admin_level < 1:
         raise HTTPException(
             status_code=403, detail="Player Character does not belong to you."
@@ -48,7 +55,9 @@ async def get_pc(
 
 @router.get("/{pc_id}/active", response_model=ActiveAs)
 async def get_pc_active_as(
-    user: Annotated[UserModel, Depends(get_current_user)], pc_id: uuid.UUID
+    request: Request,
+    user: Annotated[UserModel, Depends(get_current_user)],
+    pc_id: uuid.UUID,
 ):
     acting = await get_acting_pc(user, pc_id)
     return acting
@@ -109,10 +118,10 @@ async def submit_command(
     return {"status": "ok"}
 
 
-@router.post("/", response_model=CharacterModel)
+@router.post("/", response_model=PCModel)
 async def create_character(
     user: Annotated[UserModel, Depends(get_current_user)],
     char_data: Annotated[CharacterCreate, Body()],
 ):
-    result = await characters_db.create_character(user, char_data.name)
+    result = await pcs_db.create_pc(user, char_data.name)
     return result

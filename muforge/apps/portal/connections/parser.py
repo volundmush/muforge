@@ -1,10 +1,23 @@
 from rich.errors import MarkupError
+from rich.markup import escape
 
 
 class BaseParser:
     def __init__(self):
         self.connection: "BaseConnection" = None
         self.index: int = 0
+
+    @property
+    def service(self):
+        return self.connection.service
+
+    @property
+    def plugin(self):
+        return self.connection.plugin
+
+    @property
+    def app(self):
+        return self.connection.app
 
     async def on_start(self):
         pass

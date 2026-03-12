@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 
 from rich.color import ColorType
 
+from muforge.apps.portal.connections.link import LinkData
+
 from .parser import (
     TelnetCode,
     TelnetCommand,
@@ -128,6 +130,9 @@ class TelnetOption:
 
     async def transform_incoming_data(self, data: bytes) -> bytes:
         return data
+
+    async def at_post_negotiation(self):
+        pass
 
 
 class SGAOption(TelnetOption):
@@ -375,6 +380,14 @@ class MSSPOption(TelnetOption):
     code = TelnetCode.MSSP
     support_local = True
     start_local = True
+
+    async def custom_handler(self, conn: "BaseConnection"):
+        live_mssp = await conn.api_call("GET", "/v1/telnet/mssp")
+        await conn.link.incoming_queue.put(LinkData("MSSP", live_mssp))
+
+    async def at_post_negotiation(self):
+        if self.status.local.enabled:
+            await self.protocol.link.outgoing_queue.put(self)
 
     async def at_local_enable(self):
         self.negotiation.set()

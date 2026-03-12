@@ -14,3 +14,4 @@ class Application(BaseApplication):
 
     async def setup(self):
         await super().setup()
+        await self.setup_parsers()

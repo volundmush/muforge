@@ -1,12 +1,9 @@
 import typing
 import uuid
 
+import pydantic
 from asyncpg import Connection
 from fastapi import HTTPException, status
-
-import pydantic
-
-from muforge.utils.database import from_pool, stream
 
 from .fields import username
 from .mixins import SoftDeleteMixin, TimestampMixin
@@ -18,7 +15,6 @@ class UserModel(SoftDeleteMixin):
     admin_level: int
 
 
-@from_pool
 async def get_user(conn: Connection, user_id: uuid.UUID) -> UserModel:
     user_data = await conn.fetchrow(
         """
@@ -36,7 +32,6 @@ async def get_user(conn: Connection, user_id: uuid.UUID) -> UserModel:
     return UserModel(**user_data)
 
 
-@from_pool
 async def find_user(conn: Connection, username: str) -> UserModel:
     user_data = await conn.fetchrow(
         """
@@ -54,7 +49,7 @@ async def find_user(conn: Connection, username: str) -> UserModel:
     return UserModel(**user_data)
 
 
-@stream
+# Meant to be used as a Stream
 async def list_users(conn: Connection) -> typing.AsyncGenerator[UserModel, None]:
     query = "SELECT * FROM users"
     async for row in conn.cursor(query):
